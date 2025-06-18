@@ -1,0 +1,26 @@
+{
+    "java_cmd": "java",
+    "java_gui": "javaw",
+    "python_cmd": "python",
+    "powershell": "powershell.exe",
+    "tools": [
+        {
+            "name": "12131",
+            "path": "E:/Penetration/RedTeam/Code_Audit/Seay/Seay.exe",
+            "category": "1",
+            "sub_category": "代码审计"
+        },
+        {
+            "name": "CyberCHef",
+            "path": "E:/Penetration/RedTeam/encryption_and_decryption/CyberChef_v10.19.4/CyberChef_v10.19.4.html",
+            "category": "开发工具",
+            "sub_category": "编解码"
+        }
+    ],
+    "categories": [
+        "开发工具",
+        "其他",
+        "1",
+        "编码与解码"
+    ]
+}

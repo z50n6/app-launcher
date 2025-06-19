@@ -31,7 +31,7 @@ class Config:
     def __init__(self):
         print("初始化配置...")
         self.settings = QSettings("AppLauncher", "AppLauncher")
-        self.theme_list = ["modern_light", "modern_dark", "light", "dark", "elegant", "cyber", "minimal", "soft"]
+        self.theme_list = ["modern_light", "modern_dark"]
         self.load_config()
     
     def load_config(self):
@@ -81,7 +81,7 @@ class Config:
         """从收藏中移除"""
         if tool_name in self.favorites:
             self.favorites.remove(tool_name)
-            self.save_config()
+        self.save_config()
     
     def add_search_history(self, search_text):
         """添加搜索历史"""
@@ -204,50 +204,79 @@ class AddToolDialog(QDialog):
         # 设置对话框特定样式，确保按钮可见
         self.setStyleSheet("""
             QDialog {
-                background: #ffffff;
-                color: #2c3e50;
+                background: #f5f7fa;
+                color: #222;
                 font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+                border-radius: 12px;
+            }
+            QFormLayout {
+                margin: 18px 18px 10px 18px;
             }
             QLineEdit, QTextEdit, QComboBox {
-                background: #f8f9fa;
-                color: #2c3e50;
-                border: 2px solid #e9ecef;
+                background: #fff;
+                color: #222;
+                border: 2px solid #e0e6ed;
                 border-radius: 8px;
-                padding: 8px;
-                font-size: 13px;
+                padding: 10px;
+                font-size: 15px;
+                transition: border 0.2s;
             }
             QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
                 border: 2px solid #007bff;
-                background: #ffffff;
-            }
-            QPushButton {
-                background: linear-gradient(135deg, #007bff, #0056b3);
-                color: #ffffff;
-                border-radius: 8px;
-                padding: 10px 16px;
-                font-weight: bold;
-                font-size: 13px;
-                border: none;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background: linear-gradient(135deg, #0056b3, #004085);
-            }
-            QPushButton:pressed {
-                background: linear-gradient(135deg, #004085, #002752);
-            }
-            QPushButton:disabled {
-                background: #6c757d;
-                color: #ffffff;
+                background: #fafdff;
             }
             QLabel {
-                color: #2c3e50;
+                color: #333;
+                font-weight: 600;
+                font-size: 15px;
+                margin-bottom: 2px;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f8cff, stop:1 #0056b3);
+                color: #fff;
+                border-radius: 8px;
+                padding: 10px 22px;
                 font-weight: bold;
-                font-size: 13px;
+                font-size: 15px;
+                border: none;
+                min-width: 90px;
+                margin: 0 6px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0056b3, stop:1 #4f8cff);
+                color: #fff;
+            }
+            QPushButton:pressed {
+                background: #003366;
+                color: #fff;
+            }
+            QPushButton:disabled {
+                background: #b0b0b0;
+                color: #f5f5f5;
             }
             QDialogButtonBox QPushButton {
-                min-width: 100px;
-                margin: 5px;
+                min-width: 110px;
+                margin: 8px 10px 0 0;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f8cff, stop:1 #0056b3);
+                color: #fff;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 15px;
+                border: none;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            }
+            QDialogButtonBox QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0056b3, stop:1 #4f8cff);
+                color: #fff;
+            }
+            QDialogButtonBox QPushButton:pressed {
+                background: #003366;
+                color: #fff;
+            }
+            QDialogButtonBox QPushButton:disabled {
+                background: #b0b0b0;
+                color: #f5f5f5;
             }
         """)
         
@@ -645,34 +674,6 @@ class MainWindow(QMainWindow):
         
         theme_menu.addSeparator()
         
-        # 经典主题
-        classic_light_action = QAction("☀️ 经典浅色", self)
-        classic_light_action.triggered.connect(partial(self.set_theme, "light"))
-        theme_menu.addAction(classic_light_action)
-        
-        classic_dark_action = QAction("🌑 经典深色", self)
-        classic_dark_action.triggered.connect(partial(self.set_theme, "dark"))
-        theme_menu.addAction(classic_dark_action)
-        
-        theme_menu.addSeparator()
-        
-        # 特殊主题
-        elegant_action = QAction("✨ 优雅主题", self)
-        elegant_action.triggered.connect(partial(self.set_theme, "elegant"))
-        theme_menu.addAction(elegant_action)
-        
-        cyber_action = QAction("🤖 赛博朋克", self)
-        cyber_action.triggered.connect(partial(self.set_theme, "cyber"))
-        theme_menu.addAction(cyber_action)
-        
-        minimal_action = QAction("📝 极简风格", self)
-        minimal_action.triggered.connect(partial(self.set_theme, "minimal"))
-        theme_menu.addAction(minimal_action)
-        
-        soft_action = QAction("🌸 柔和主题", self)
-        soft_action.triggered.connect(partial(self.set_theme, "soft"))
-        theme_menu.addAction(soft_action)
-        
         # 统计菜单
         stats_menu = menubar.addMenu("统计")
         
@@ -686,11 +687,6 @@ class MainWindow(QMainWindow):
         recent_tools_action.triggered.connect(self.show_recent_tools)
         stats_menu.addAction(recent_tools_action)
         
-        # 收藏工具
-        favorites_action = QAction("收藏工具", self)
-        favorites_action.triggered.connect(self.show_favorites)
-        stats_menu.addAction(favorites_action)
-        
         stats_menu.addSeparator()
         
         # 刷新统计
@@ -699,12 +695,10 @@ class MainWindow(QMainWindow):
         refresh_stats_action.triggered.connect(self.refresh_data)
         stats_menu.addAction(refresh_stats_action)
         
-        # 帮助菜单
-        help_menu = menubar.addMenu("帮助")
-        
+        # 直接添加关于菜单项到菜单栏
         about_action = QAction("关于", self)
         about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
+        menubar.addAction(about_action)
         
         # 添加快捷键
         self.setup_shortcuts()
@@ -752,23 +746,68 @@ class MainWindow(QMainWindow):
             self.status_label.setText("进入全屏模式")
     
     def show_about(self):
-        """显示关于对话框"""
-        QMessageBox.about(self, "关于 AppLauncher", 
-                         "AppLauncher - 智能程序启动与编码助手\n\n"
-                         "版本: 2.0\n"
-                         "功能: 工具管理、分类组织、快速启动、CyberChef集成\n\n"
-                         "支持多种工具类型:\n"
-                         "• GUI应用、命令行工具\n"
-                         "• Java、Python、PowerShell脚本\n"
-                         "• 网页链接、文件夹\n"
-                         "• 批处理文件\n\n"
-                         "快捷键:\n"
-                         "• Ctrl+N: 添加工具\n"
-                         "• Ctrl+F: 搜索\n"
-                         "• F5: 刷新\n"
-                         "• F11: 全屏切换\n\n"
-                         "开发者:\n"
-                         "• GitHub: https://github.com/z50n6")
+        """显示关于对话框（美化+可点击GitHub链接）"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("关于 AppLauncher")
+        dialog.setMinimumSize(420, 320)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #fff;
+                border-radius: 14px;
+            }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QTextBrowser {
+                border: none;
+                background: transparent;
+                font-size: 15px;
+                color: #222;
+                margin: 0 8px;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
+                color: #fff;
+                border-radius: 8px;
+                font-size: 15px;
+                font-weight: bold;
+                min-width: 90px;
+                min-height: 34px;
+                margin: 0 8px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+            }
+        """)
+        layout = QVBoxLayout(dialog)
+        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>关于 AppLauncher</h2>")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        about_text = QTextBrowser()
+        about_text.setOpenExternalLinks(True)
+        about_text.setHtml('''
+        <div style="font-size:15px;line-height:1.8;">
+        <b>AppLauncher - 智能程序启动与编码助手</b><br><br>
+        <b>版本：</b>2.0<br>
+        <b>功能：</b>工具管理、分类组织、快速启动、CyberChef集成<br><br>
+        <b>支持多种工具类型：</b><br>
+        • GUI应用、命令行工具<br>
+        • Java、Python、PowerShell脚本<br>
+        • 网页链接、文件夹、批处理文件<br><br>
+        <b>快捷键：</b><br>
+        • Ctrl+N：添加工具<br>
+        • Ctrl+F：搜索<br>
+        • F5：刷新<br>
+        • F11：全屏切换<br><br>
+        <b>开发者：</b><br>
+        • GitHub：<a href="https://github.com/z50n6" style="color:#1da1f2;text-decoration:underline;">https://github.com/z50n6</a>
+        </div>
+        ''')
+        layout.addWidget(about_text)
+        btn = QPushButton("关闭")
+        btn.clicked.connect(dialog.accept)
+        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        dialog.exec()
     
     def create_status_bar(self):
         """创建状态栏"""
@@ -1088,12 +1127,20 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(
             self, "确认删除",
             f"确定要删除工具 '{tool.name}' 吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
-            self.config.tools.remove(tool.to_dict())
+        if reply == QMessageBox.StandardButton.Yes:
+            # 更稳妥地删除工具，避免list.remove(x): x not in list
+            for idx, t in enumerate(self.config.tools):
+                if (
+                    t.get('name') == tool.name and
+                    t.get('path') == tool.path and
+                    t.get('category') == tool.category
+                ):
+                    del self.config.tools[idx]
+                    break
             self.config.save_config()
             self.update_tools_list()  # 重新加载当前分类的工具
     
@@ -1140,74 +1187,37 @@ class MainWindow(QMainWindow):
             QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
                 border: 2px solid #1da1f2; background: #ffffff; 
             }
-            QPushButton { 
-                background: linear-gradient(135deg, #1da1f2, #0d8bd9); color: #ffffff; 
-                border-radius: 6px; padding: 8px 16px; font-weight: 600; font-size: 13px;
-                border: none;
-            }
-            QPushButton:hover { 
-                background: linear-gradient(135deg, #0d8bd9, #0c7bb8); 
-            }
-            QPushButton:pressed { 
-                background: linear-gradient(135deg, #0c7bb8, #0b6aa7); 
-            }
-            QSplitter::handle { background: #e1e8ed; border-radius: 1px; }
-            QListWidget { 
-                background: #ffffff; 
-                border: 1px solid #e1e8ed; 
-                border-radius: 8px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #ffffff; 
-                border: 1px solid #e1e8ed; 
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9); 
+                color: #fff; 
                 border-radius: 8px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
+                padding: 8px 16px; 
+                font-weight: 600; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
             }
-            QListWidget::item:selected { 
-                background: linear-gradient(135deg, #1da1f2, #0d8bd9); 
-                color: #ffffff; 
-                border: 1px solid #0d8bd9;
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2); 
             }
-            QListWidget::item:hover { 
-                background: #f7f9fa; 
-                border: 1px solid #1da1f2; 
-                transform: translateY(-2px);
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #0c7bb8; 
             }
-            QListWidget::item:alternate { 
-                background: #fafbfc; 
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #b0b0b0;
+                color: #f5f5f5;
             }
-            QListWidget::item:alternate:hover { 
-                background: #f0f4f8; 
+            QDialog, QMessageBox, QInputDialog {
+                background: #fff;
+                border-radius: 14px;
             }
-            QStatusBar { background: #ffffff; color: #657786; border-top: 1px solid #e1e8ed; }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
             QMenuBar { background: #ffffff; color: #2c3e50; border-bottom: 1px solid #e1e8ed; }
             QMenuBar::item:selected { background: #f7f9fa; border-radius: 4px; }
             QMenu { background: #ffffff; color: #2c3e50; border: 1px solid #e1e8ed; border-radius: 6px; padding: 4px; }
             QMenu::item:selected { background: #f7f9fa; border-radius: 4px; }
-            QDialog { background: #fafbfc; }
-            QDialog QPushButton { 
-                background: linear-gradient(135deg, #1da1f2, #0d8bd9); color: #ffffff; 
-                border-radius: 6px; padding: 8px 16px; font-weight: 600; font-size: 13px;
-                border: none; min-width: 80px;
-            }
-            QDialog QPushButton:hover { 
-                background: linear-gradient(135deg, #0d8bd9, #0c7bb8); 
-            }
-            QDialog QPushButton:pressed { 
-                background: linear-gradient(135deg, #0c7bb8, #0b6aa7); 
-            }
-            QDialog QLineEdit, QDialog QTextEdit, QDialog QComboBox {
-                background: #ffffff; color: #2c3e50; border: 1px solid #e1e8ed; border-radius: 6px;
-                padding: 8px; font-size: 13px;
-            }
-            QDialog QLineEdit:focus, QDialog QTextEdit:focus, QDialog QComboBox:focus {
-                border: 2px solid #1da1f2; background: #ffffff;
-            }
-            QDialog QLabel { color: #2c3e50; font-weight: 600; font-size: 13px; }
             """
         elif theme == "modern_dark":
             qss = """
@@ -1220,328 +1230,37 @@ class MainWindow(QMainWindow):
             QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
                 border: 2px solid #00d4ff; background: #333333; 
             }
-            QPushButton { 
-                background: linear-gradient(135deg, #00d4ff, #0099cc); color: #ffffff; 
-                border-radius: 8px; padding: 10px 16px; font-weight: bold; font-size: 13px;
-                border: none;
-            }
-            QPushButton:hover { 
-                background: linear-gradient(135deg, #0099cc, #006699); 
-                transform: translateY(-1px);
-            }
-            QPushButton:pressed { 
-                background: linear-gradient(135deg, #006699, #004466); 
-                transform: translateY(0px);
-            }
-            QSplitter::handle { background: #404040; border-radius: 2px; }
-            QListWidget { 
-                background: #2d2d2d; 
-                border: 2px solid #404040; 
-                border-radius: 8px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #2d2d2d; 
-                border: 1px solid #404040; 
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d4ff, stop:1 #0099cc); 
+                color: #fff; 
                 border-radius: 8px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
+                padding: 10px 16px; 
+                font-weight: bold; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
             }
-            QListWidget::item:selected { 
-                background: linear-gradient(135deg, #00d4ff, #0099cc); 
-                color: #ffffff; 
-                border: 1px solid #0099cc;
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0099cc, stop:1 #00d4ff); 
             }
-            QListWidget::item:hover { 
-                background: #333333; 
-                border: 1px solid #00d4ff; 
-                transform: translateY(-2px);
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #006699; 
             }
-            QListWidget::item:alternate { 
-                background: #333333; 
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #444;
+                color: #888;
             }
-            QListWidget::item:alternate:hover { 
-                background: #383838; 
+            QDialog, QMessageBox, QInputDialog {
+                background: #23272e;
+                border-radius: 14px;
             }
-            QStatusBar { background: #2d2d2d; color: #b0b0b0; border-top: 1px solid #404040; }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
             QMenuBar { background: #1a1a1a; color: #e0e0e0; border-bottom: 1px solid #404040; }
             QMenuBar::item:selected { background: #333333; border-radius: 4px; }
             QMenu { background: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; border-radius: 8px; padding: 4px; }
             QMenu::item:selected { background: #333333; border-radius: 4px; }
-            """
-        elif theme == "elegant":
-            qss = """
-            QMainWindow { background: #fafafa; }
-            QWidget { background: #fafafa; color: #2c3e50; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
-                background: #ffffff; color: #2c3e50; border: 1px solid #d1d5db; border-radius: 6px; 
-                padding: 8px; font-size: 13px;
-            }
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
-                border: 1px solid #8b5cf6; background: #ffffff; 
-            }
-            QPushButton { 
-                background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #ffffff; 
-                border-radius: 6px; padding: 8px 16px; font-weight: 500; font-size: 13px;
-                border: none;
-            }
-            QPushButton:hover { 
-                background: linear-gradient(135deg, #7c3aed, #6d28d9); 
-            }
-            QSplitter::handle { background: #e5e7eb; border-radius: 1px; }
-            QListWidget { 
-                background: #ffffff; 
-                border: 1px solid #d1d5db; 
-                border-radius: 8px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #ffffff; 
-                border: 1px solid #d1d5db; 
-                border-radius: 8px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
-            }
-            QListWidget::item:selected { 
-                background: linear-gradient(135deg, #8b5cf6, #7c3aed); 
-                color: #ffffff; 
-                border: 1px solid #7c3aed;
-            }
-            QListWidget::item:hover { 
-                background: #f3f4f6; 
-                border: 1px solid #8b5cf6; 
-                transform: translateY(-2px);
-            }
-            QListWidget::item:alternate { 
-                background: #fafafa; 
-            }
-            QListWidget::item:alternate:hover { 
-                background: #f0f0f0; 
-            }
-            QStatusBar { background: #ffffff; color: #6b7280; border-top: 1px solid #e5e7eb; }
-            QMenuBar { background: #ffffff; color: #2c3e50; border-bottom: 1px solid #e5e7eb; }
-            QMenuBar::item:selected { background: #f3f4f6; border-radius: 4px; }
-            QMenu { background: #ffffff; color: #2c3e50; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; }
-            QMenu::item:selected { background: #f3f4f6; border-radius: 4px; }
-            """
-        elif theme == "cyber":
-            qss = """
-            QMainWindow { background: #0a0a0a; }
-            QWidget { background: #0a0a0a; color: #00ff00; font-family: 'Consolas', 'Microsoft YaHei', monospace; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
-                background: #1a1a1a; color: #00ff00; border: 2px solid #00ff00; border-radius: 4px; 
-                padding: 8px; font-size: 13px;
-            }
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
-                border: 2px solid #00ffff; background: #1a1a1a; 
-            }
-            QPushButton { 
-                background: linear-gradient(135deg, #00ff00, #00cc00); color: #000000; 
-                border-radius: 4px; padding: 8px 16px; font-weight: bold; font-size: 13px;
-                border: 1px solid #00ff00;
-            }
-            QPushButton:hover { 
-                background: linear-gradient(135deg, #00ffff, #00cccc); color: #000000; 
-                border: 1px solid #00ffff;
-            }
-            QSplitter::handle { background: #00ff00; border-radius: 1px; }
-            QListWidget { 
-                background: #1a1a1a; 
-                border: 2px solid #00ff00; 
-                border-radius: 6px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #1a1a1a; 
-                border: 1px solid #00ff00; 
-                border-radius: 4px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
-            }
-            QListWidget::item:selected { 
-                background: linear-gradient(135deg, #00ff00, #00cc00); 
-                color: #000000; 
-                border: 1px solid #00ff00;
-            }
-            QListWidget::item:hover { 
-                background: #2a2a2a; 
-                border: 1px solid #00ffff; 
-                transform: translateY(-2px);
-            }
-            QListWidget::item:alternate { 
-                background: #222222; 
-            }
-            QListWidget::item:alternate:hover { 
-                background: #2a2a2a; 
-            }
-            QStatusBar { background: #1a1a1a; color: #00ff00; border-top: 1px solid #00ff00; }
-            QMenuBar { background: #0a0a0a; color: #00ff00; border-bottom: 1px solid #00ff00; }
-            QMenuBar::item:selected { background: #1a1a1a; border-radius: 2px; }
-            QMenu { background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; border-radius: 4px; padding: 4px; }
-            QMenu::item:selected { background: #2a2a2a; border-radius: 2px; }
-            """
-        elif theme == "light":
-            qss = """
-            QMainWindow { background: #f8f9fa; }
-            QWidget { background: #f8f9fa; color: #222; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { background: #fff; color: #222; border-radius: 6px; }
-            QPushButton { background: #3498db; color: #fff; border-radius: 6px; padding: 6px 12px; }
-            QPushButton:hover { background: #2980b9; }
-            QSplitter::handle { background: #e9ecef; }
-            QListWidget { 
-                background: #ffffff; 
-                border: 1px solid #e9ecef; 
-                border-radius: 6px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #ffffff; 
-                border: 1px solid #e9ecef; 
-                border-radius: 6px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
-            }
-            QListWidget::item:selected { 
-                background: #3498db; 
-                color: #fff; 
-                border: 1px solid #2980b9;
-            }
-            QListWidget::item:hover { 
-                background: #e3f2fd; 
-                border: 1px solid #bbdefb; 
-            }
-            QListWidget::item:alternate { 
-                background: #fafafa; 
-            }
-            QListWidget::item:alternate:hover { 
-                background: #e8f4fd; 
-            }
-            """
-        elif theme == "dark":
-            qss = """
-            QMainWindow { background: #23272e; }
-            QWidget { background: #23272e; color: #e0e0e0; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { background: #2c3e50; color: #e0e0e0; border-radius: 6px; }
-            QPushButton { background: #2980b9; color: #fff; border-radius: 6px; padding: 6px 12px; }
-            QPushButton:hover { background: #3498db; }
-            QSplitter::handle { background: #444; }
-            QTreeWidget { 
-                background: #2c3e50; 
-                border: 1px solid #34495e; 
-                border-radius: 6px;
-                outline: none;
-            }
-            QTreeWidget::item { 
-                padding: 10px 12px; 
-                margin: 2px 6px; 
-                border-radius: 6px; 
-                background: #2c3e50; 
-                border: 1px solid transparent;
-                min-height: 18px;
-            }
-            QTreeWidget::item:selected { 
-                background: #3498db; 
-                color: #fff; 
-                border: 1px solid #2980b9;
-            }
-            QTreeWidget::item:hover { 
-                background: #34495e; 
-                border: 1px solid #4a5f7a; 
-            }
-            QTreeWidget::item:alternate { 
-                background: #34495e; 
-            }
-            QTreeWidget::item:alternate:hover { 
-                background: #3d5a7a; 
-            }
-            QTreeWidget::branch:has-children:!has-siblings:closed, QTreeWidget::branch:closed:has-children:has-siblings { image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNkw4IDZMMTAgNkw2IDEwTDQgNloiIGZpbGw9IiNlMGUwZTAiLz4KPC9zdmc+); }
-            QTreeWidget::branch:open:has-children:!has-siblings, QTreeWidget::branch:open:has-children:has-siblings { image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNkw4IDZMMTAgNkw2IDEwTDQgNloiIGZpbGw9IiNlMGUwZTAiIHRyYW5zZm9ybT0icm90YXRlKDkwKSIvPgo8L3N2Zz4=); }
-            """
-        elif theme == "soft":
-            qss = """
-            QMainWindow { background: #f6f5f3; }
-            QWidget { background: #f6f5f3; color: #444; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { background: #fff8e1; color: #444; border-radius: 8px; border: 1px solid #ffe0b2; }
-            QPushButton { background: #ffd180; color: #6d4c41; border-radius: 8px; padding: 6px 12px; }
-            QPushButton:hover { background: #ffe0b2; }
-            QSplitter::handle { background: #ffe0b2; }
-            QListWidget { 
-                background: #fff8e1; 
-                border: 1px solid #ffe0b2; 
-                border-radius: 8px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #fff8e1; 
-                border: 1px solid #ffe0b2; 
-                border-radius: 8px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
-            }
-            QListWidget::item:selected { 
-                background: #ffd180; 
-                color: #6d4c41; 
-                border: 1px solid #ffb74d;
-            }
-            QListWidget::item:hover { 
-                background: #fff3e0; 
-                border: 1px solid #ffe0b2; 
-            }
-            QListWidget::item:alternate { 
-                background: #fffde7; 
-            }
-            QListWidget::item:alternate:hover { 
-                background: #fff8e1; 
-            }
-            """
-        elif theme == "minimal":
-            qss = """
-            QMainWindow { background: #fff; }
-            QWidget { background: #fff; color: #222; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
-            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { background: #fff; color: #222; border: 1px solid #eee; border-radius: 4px; }
-            QPushButton { background: #eee; color: #222; border-radius: 4px; padding: 6px 12px; }
-            QPushButton:hover { background: #e0e0e0; }
-            QSplitter::handle { background: #eee; }
-            QListWidget { 
-                background: #ffffff; 
-                border: 1px solid #eee; 
-                border-radius: 4px;
-                outline: none;
-                padding: 10px;
-            }
-            QListWidget::item { 
-                background: #ffffff; 
-                border: 1px solid #eee; 
-                border-radius: 4px; 
-                padding: 8px; 
-                margin: 4px;
-                min-height: 60px;
-            }
-            QListWidget::item:selected { 
-                background: #f5f5f5; 
-                color: #222; 
-                border: 1px solid #ddd;
-            }
-            QListWidget::item:hover { 
-                background: #fafafa; 
-                border: 1px solid #eee; 
-            }
-            QListWidget::item:alternate { 
-                background: #fafafa; 
-            }
-            QListWidget::item:alternate:hover { 
-                background: #f5f5f5; 
-            }
             """
         else:
             qss = ""
@@ -1895,89 +1614,132 @@ class MainWindow(QMainWindow):
                 self.update_tools_list(category_name)
 
     def show_total_tools(self):
-        """显示总工具数统计"""
+        """显示总工具数统计（美化弹窗）"""
         total_tools = len(self.config.tools)
         total_categories = len(self.config.categories)
         total_launches = sum(tool.get("launch_count", 0) for tool in self.config.tools)
-        
-        stats_text = f"📊 工具统计\n\n"
-        stats_text += f"总工具数: {total_tools}\n"
-        stats_text += f"总分类数: {total_categories}\n"
-        stats_text += f"总启动次数: {total_launches}\n"
-        
+        stats_text = f"总工具数: {total_tools}\n总分类数: {total_categories}\n总启动次数: {total_launches}"
         if total_tools > 0:
             avg_launches = total_launches / total_tools
-            stats_text += f"平均启动次数: {avg_launches:.1f}\n"
-        
-        QMessageBox.information(self, "工具统计", stats_text)
+            stats_text += f"\n平均启动次数: {avg_launches:.1f}"
+        # 使用自定义QDialog美化弹窗
+        dialog = QDialog(self)
+        dialog.setWindowTitle("📊 工具统计")
+        dialog.setMinimumSize(350, 220)
+        layout = QVBoxLayout(dialog)
+        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>📊 工具统计</h2>")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        stats_label = QLabel()
+        stats_label.setText(f"<div style='font-size:18px;color:#222;margin:10px 0 18px 0;'><b>总工具数：</b> <span style='color:#1da1f2;'>{total_tools}</span><br>"
+                            f"<b>总分类数：</b> <span style='color:#1da1f2;'>{total_categories}</span><br>"
+                            f"<b>总启动次数：</b> <span style='color:#1da1f2;'>{total_launches}</span><br>"
+                            + (f"<b>平均启动次数：</b> <span style='color:#1da1f2;'>{avg_launches:.1f}</span>" if total_tools > 0 else "") + "</div>")
+        stats_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(stats_label)
+        btn = QPushButton("关闭")
+        btn.setFixedHeight(36)
+        btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
+                color: #fff;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                min-width: 100px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+            }
+        """)
+        btn.clicked.connect(dialog.accept)
+        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #fff;
+                border-radius: 14px;
+            }
+            QLabel {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+        """)
+        dialog.exec()
     
     def show_recent_tools(self):
-        """显示最近启动的工具"""
+        """显示最近启动的工具（美化弹窗，修复按钮和图标）"""
         if not self.config.recent_tools:
             QMessageBox.information(self, "最近启动的工具", "暂无最近启动的工具")
             return
-        
-        # 创建对话框
         dialog = QDialog(self)
         dialog.setWindowTitle("🕒 最近启动的工具")
-        dialog.setMinimumSize(400, 300)
-        dialog.setModal(True)
-        
-        # 创建布局
-        layout = QVBoxLayout(dialog)
-        
-        # 创建说明标签
-        info_label = QLabel("点击工具名称可直接启动")
-        info_label.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 10px;")
-        layout.addWidget(info_label)
-        
-        # 创建工具列表
-        list_widget = QListWidget()
-        list_widget.setStyleSheet("""
+        dialog.setMinimumSize(420, 340)
+        dialog.setStyleSheet("""
+            QDialog {
+                background: #fff;
+                border-radius: 14px;
+            }
+            QLabel, QListWidget {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
             QListWidget {
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                background-color: white;
-                font-size: 14px;
+                border: 1px solid #e1e8ed;
+                border-radius: 8px;
+                background: #fafbfc;
+                font-size: 15px;
+                margin-bottom: 10px;
             }
             QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #eee;
+                padding: 10px 8px;
+                border-bottom: 1px solid #f0f0f0;
             }
             QListWidget::item:hover {
-                background-color: #f0f8ff;
+                background: #e3f2fd;
             }
             QListWidget::item:selected {
-                background-color: #e6f3ff;
-                color: black;
+                background: #1da1f2;
+                color: #fff;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
+                color: #fff;
+                border-radius: 8px;
+                font-size: 15px;
+                font-weight: bold;
+                min-width: 90px;
+                min-height: 34px;
+                margin: 0 8px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
             }
         """)
-        
-        # 添加最近使用的工具
-        for i, tool_name in enumerate(self.config.recent_tools[:20], 1):  # 显示最近20个
-            item = QListWidgetItem(f"{i:2d}. 📱 {tool_name}")
-            item.setData(Qt.ItemDataRole.UserRole, tool_name)  # 存储工具名称
+        layout = QVBoxLayout(dialog)
+        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>🕒 最近启动的工具</h2>")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        info_label = QLabel("<span style='color:#666;font-size:13px;'>双击工具名称可直接启动</span>")
+        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(info_label)
+        list_widget = QListWidget()
+        for i, tool_name in enumerate(self.config.recent_tools[:20], 1):
+            item = QListWidgetItem(f"{i:2d}. 🛠️ {tool_name}")
+            item.setData(Qt.ItemDataRole.UserRole, tool_name)
             list_widget.addItem(item)
-        
-        # 连接双击事件
         list_widget.itemDoubleClicked.connect(lambda item: self.launch_recent_tool(item, dialog))
-        
         layout.addWidget(list_widget)
-        
-        # 创建按钮
         button_layout = QHBoxLayout()
-        
-        close_button = QPushButton("关闭")
-        close_button.clicked.connect(dialog.accept)
-        button_layout.addWidget(close_button)
-        
+        button_layout.addStretch()
         clear_button = QPushButton("清空历史")
+        clear_button.setFixedWidth(110)
         clear_button.clicked.connect(lambda: self.clear_recent_history(dialog))
+        close_button = QPushButton("关闭")
+        close_button.setFixedWidth(90)
+        close_button.clicked.connect(dialog.accept)
         button_layout.addWidget(clear_button)
-        
+        button_layout.addWidget(close_button)
+        button_layout.addStretch()
         layout.addLayout(button_layout)
-        
-        # 显示对话框
         dialog.exec()
     
     def launch_recent_tool(self, item, dialog):
@@ -2005,15 +1767,39 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "工具不存在", f"工具 '{tool_name}' 已不存在")
     
     def clear_recent_history(self, dialog):
-        """清空最近使用历史"""
-        reply = QMessageBox.question(
-            self, "确认清空", 
-            "确定要清空最近使用历史吗？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
+        """清空最近使用历史（美化确认弹窗按钮）"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("确认清空")
+        msg_box.setText("确定要清空最近使用历史吗？")
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        yes_btn = msg_box.addButton("是", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg_box.addButton("否", QMessageBox.ButtonRole.NoRole)
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background: #fff;
+                border-radius: 12px;
+            }
+            QLabel {
+                color: #222;
+                font-size: 15px;
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
+                color: #fff;
+                border-radius: 8px;
+                font-size: 15px;
+                font-weight: bold;
+                min-width: 80px;
+                min-height: 32px;
+                margin: 0 8px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+            }
+        """)
+        msg_box.exec()
+        if msg_box.clickedButton() == yes_btn:
             self.config.recent_tools.clear()
             self.config.save_config()
             dialog.accept()
@@ -2073,7 +1859,7 @@ class MainWindow(QMainWindow):
             favorites_text += f"{i}. {tool_name}\n"
         
         QMessageBox.information(self, "收藏工具", favorites_text)
-
+    
     def prev_page(self):
         if self.current_page > 1:
             self.current_page -= 1
@@ -2233,16 +2019,6 @@ class MainWindow(QMainWindow):
             launch_action = QAction("启动", self)
             launch_action.triggered.connect(partial(self.launch_tool, item))
             menu.addAction(launch_action)
-            
-            # 收藏功能
-            if tool.name in self.config.favorites:
-                unfavorite_action = QAction("取消收藏", self)
-                unfavorite_action.triggered.connect(partial(self.remove_favorite, tool.name))
-                menu.addAction(unfavorite_action)
-            else:
-                favorite_action = QAction("添加到收藏", self)
-                favorite_action.triggered.connect(partial(self.add_favorite, tool.name))
-                menu.addAction(favorite_action)
             
             menu.addSeparator()
             

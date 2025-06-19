@@ -73,6 +73,7 @@
   "theme": "modern_light",
   "view_mode": "grid",
   "recent_tools": [
+    "Wireshark",
     "Fiddler"
   ],
   "show_status_bar": "true",

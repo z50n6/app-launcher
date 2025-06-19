@@ -4,6 +4,7 @@ import json
 import subprocess
 import webbrowser
 import time
+import logging
 from datetime import datetime, timedelta
 from functools import partial
 from collections import defaultdict, Counter
@@ -26,10 +27,23 @@ from PyQt6.QtWebEngineCore import QWebEnginePage
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
+# 日志初始化
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, f"run_{datetime.now().strftime('%Y-%m-%d')}.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 class Config:
     """配置管理类"""
     def __init__(self):
-        print("初始化配置...")
+        logging.info("初始化配置...")
         self.settings = QSettings("AppLauncher", "AppLauncher")
         self.config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
         self.theme_list = ["modern_light", "modern_dark"]
@@ -37,7 +51,7 @@ class Config:
     
     def load_config(self):
         """加载配置"""
-        print("加载配置...")
+        logging.info("加载配置...")
         # 首先尝试从JSON文件加载
         if os.path.exists(self.config_file):
             try:
@@ -52,14 +66,14 @@ class Config:
                     self.auto_refresh = data.get("auto_refresh", True)
                     self.search_history = data.get("search_history", [])
             except Exception as e:
-                print(f"从JSON文件加载配置失败: {e}")
+                logging.error(f"从JSON文件加载配置失败: {e}")
                 # 如果JSON加载失败，从QSettings加载
                 self._load_from_settings()
         else:
             # 如果JSON文件不存在，从QSettings加载
             self._load_from_settings()
         
-        print(f"加载的配置: categories={self.categories}, tools={len(self.tools)}")
+        logging.info(f"加载的配置: categories={self.categories}, tools={len(self.tools)}")
     
     def _load_from_settings(self):
         """从QSettings加载配置"""
@@ -74,7 +88,7 @@ class Config:
     
     def save_config(self):
         """保存配置"""
-        print("保存配置...")
+        logging.info("保存配置...")
         # 保存到QSettings
         self.settings.setValue("categories", self.categories)
         self.settings.setValue("tools", self.tools)
@@ -101,7 +115,7 @@ class Config:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"保存到JSON文件失败: {e}")
+            logging.error(f"保存到JSON文件失败: {e}")
     
     def add_to_recent(self, tool_name):
         """添加到最近使用"""
@@ -133,7 +147,7 @@ class Config:
         self.search_history = self.search_history[:10]
         self.save_config()
 
-print("定义配置类完成...")
+logging.info("定义配置类完成...")
 
 class Tool:
     """工具类"""
@@ -186,7 +200,7 @@ class Tool:
             data.get("args", "")  # 新增启动参数字段
         )
 
-print("定义工具类完成...")
+logging.info("定义工具类完成...")
 
 class CyberChefDialog(QDialog):
     """CyberChef 对话框"""
@@ -473,16 +487,16 @@ class AddToolDialog(QDialog):
 class MainWindow(QMainWindow):
     """主窗口"""
     def __init__(self):
-        print("初始化主窗口...")
+        logging.info("初始化主窗口...")
         super().__init__()
         self.config = Config()
         self.init_ui()
         self.load_data()
-        print("主窗口初始化完成")
+        logging.info("主窗口初始化完成")
     
     def init_ui(self):
         """初始化界面（重构为左侧固定导航栏）"""
-        print("开始初始化界面...")
+        logging.info("开始初始化界面...")
         self.setWindowTitle("AppLauncher - 智能程序启动与编码助手")
         self.setMinimumSize(1200, 800)
 
@@ -542,7 +556,7 @@ class MainWindow(QMainWindow):
         self.create_status_bar()
         # 设置样式
         self.apply_theme()
-        print("界面初始化完成")
+        logging.info("界面初始化完成")
 
     def switch_nav(self, nav):
         """切换导航（safe/code）"""
@@ -1039,9 +1053,9 @@ class MainWindow(QMainWindow):
     def on_category_clicked(self, item):
         """分类点击处理"""
         category_name = item.text(0)
-        print(f"点击分类: {category_name}")
+        logging.info(f"点击分类: {category_name}")
         if category_name == "编码与解码":
-            print("切换到CyberChef页面")
+            logging.info("切换到CyberChef页面")
             self.right_stack.setCurrentWidget(self.cyberchef_page)
             self.cyberchef_webview.setFocus()
         else:
@@ -1179,7 +1193,7 @@ class MainWindow(QMainWindow):
             new_category = tool_data["category"]
             if new_category not in self.config.categories:
                 self.config.categories.append(new_category)
-                print(f"编辑时添加新分类: {new_category}")
+                logging.info(f"编辑时添加新分类: {new_category}")
             
             # 更新工具数据
             index = self.config.tools.index(tool.to_dict())
@@ -1505,7 +1519,7 @@ class MainWindow(QMainWindow):
     def on_cyberchef_loaded(self, success):
         """CyberChef加载完成后的处理"""
         if success:
-            print("CyberChef加载成功")
+            logging.info("CyberChef加载成功")
             # 注入更强力的JS，自动均分三栏并触发resize
             js = '''
             (function() {
@@ -1523,7 +1537,7 @@ class MainWindow(QMainWindow):
             '''
             self.cyberchef_webview.page().runJavaScript(js)
         else:
-            print("CyberChef加载失败")
+            logging.error("CyberChef加载失败")
             self.cyberchef_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
 
     def rename_subcategory(self, item):
@@ -1669,7 +1683,7 @@ class MainWindow(QMainWindow):
             new_category = tool_data["category"]
             if new_category not in self.config.categories:
                 self.config.categories.append(new_category)
-                print(f"添加新分类: {new_category}")
+                logging.info(f"添加新分类: {new_category}")
             
             self.config.tools.append(tool_data)
             self.config.save_config()
@@ -2297,11 +2311,11 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"已从收藏中移除 '{tool_name}'")
 
 if __name__ == "__main__":
-    print("程序开始运行...")
+    logging.info("程序开始运行...")
     app = QApplication(sys.argv)
-    print("创建 QApplication 实例...")
+    logging.info("创建 QApplication 实例...")
     window = MainWindow()
-    print("创建主窗口...")
+    logging.info("创建主窗口...")
     window.show()
-    print("显示主窗口...")
+    logging.info("显示主窗口...")
     sys.exit(app.exec()) 

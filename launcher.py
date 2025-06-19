@@ -24,43 +24,84 @@ from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QAction, QKeySe
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 
-print("开始导入模块...")
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
 class Config:
     """配置管理类"""
     def __init__(self):
         print("初始化配置...")
         self.settings = QSettings("AppLauncher", "AppLauncher")
+        self.config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
         self.theme_list = ["modern_light", "modern_dark"]
         self.load_config()
     
     def load_config(self):
         """加载配置"""
         print("加载配置...")
+        # 首先尝试从JSON文件加载
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.categories = data.get("categories", ["信息收集", "漏洞扫描", "漏洞利用", "后渗透", "流量与代理", "编码与解码"])
+                    self.tools = data.get("tools", [])
+                    self.theme = data.get("theme", "modern_light")
+                    self.view_mode = data.get("view_mode", "list")
+                    self.recent_tools = data.get("recent_tools", [])
+                    self.show_status_bar = data.get("show_status_bar", True)
+                    self.auto_refresh = data.get("auto_refresh", True)
+                    self.search_history = data.get("search_history", [])
+            except Exception as e:
+                print(f"从JSON文件加载配置失败: {e}")
+                # 如果JSON加载失败，从QSettings加载
+                self._load_from_settings()
+        else:
+            # 如果JSON文件不存在，从QSettings加载
+            self._load_from_settings()
+        
+        print(f"加载的配置: categories={self.categories}, tools={len(self.tools)}")
+    
+    def _load_from_settings(self):
+        """从QSettings加载配置"""
         self.categories = self.settings.value("categories", ["信息收集", "漏洞扫描", "漏洞利用", "后渗透", "流量与代理", "编码与解码"])
         self.tools = self.settings.value("tools", [])
-        self.theme = self.settings.value("theme", "light")
+        self.theme = self.settings.value("theme", "modern_light")
         self.view_mode = self.settings.value("view_mode", "list")
-        self.favorites = self.settings.value("favorites", [])  # 收藏的工具
-        self.recent_tools = self.settings.value("recent_tools", [])  # 最近使用的工具
-        self.show_status_bar = self.settings.value("show_status_bar", True)  # 显示状态栏
-        self.auto_refresh = self.settings.value("auto_refresh", True)  # 自动刷新
-        self.search_history = self.settings.value("search_history", [])  # 搜索历史
-        print(f"加载的配置: categories={self.categories}, tools={len(self.tools)}")
+        self.recent_tools = self.settings.value("recent_tools", [])
+        self.show_status_bar = self.settings.value("show_status_bar", True)
+        self.auto_refresh = self.settings.value("auto_refresh", True)
+        self.search_history = self.settings.value("search_history", [])
     
     def save_config(self):
         """保存配置"""
         print("保存配置...")
+        # 保存到QSettings
         self.settings.setValue("categories", self.categories)
         self.settings.setValue("tools", self.tools)
         self.settings.setValue("theme", self.theme)
         self.settings.setValue("view_mode", self.view_mode)
-        self.settings.setValue("favorites", self.favorites)
         self.settings.setValue("recent_tools", self.recent_tools)
         self.settings.setValue("show_status_bar", self.show_status_bar)
         self.settings.setValue("auto_refresh", self.auto_refresh)
         self.settings.setValue("search_history", self.search_history)
         self.settings.sync()
+        
+        # 同时保存到JSON文件
+        try:
+            data = {
+                "categories": self.categories,
+                "tools": self.tools,
+                "theme": self.theme,
+                "view_mode": self.view_mode,
+                "recent_tools": self.recent_tools,
+                "show_status_bar": self.show_status_bar,
+                "auto_refresh": self.auto_refresh,
+                "search_history": self.search_history
+            }
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"保存到JSON文件失败: {e}")
     
     def add_to_recent(self, tool_name):
         """添加到最近使用"""
@@ -440,189 +481,232 @@ class MainWindow(QMainWindow):
         print("主窗口初始化完成")
     
     def init_ui(self):
-        """初始化界面"""
+        """初始化界面（重构为左侧固定导航栏）"""
         print("开始初始化界面...")
         self.setWindowTitle("AppLauncher - 智能程序启动与编码助手")
         self.setMinimumSize(1200, 800)
-        
+
         # 分页参数
         self.tools_per_page = 20
         self.current_page = 1
         self.total_pages = 1
         self.current_tools = []  # 当前显示的工具列表
-        
+
         # 创建主窗口部件
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
-        
+
         # 创建主布局
         layout = QHBoxLayout(main_widget)
-        
+
         # 创建分割器
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(1)  # 设置分割线宽度为1像素
-        splitter.setChildrenCollapsible(False)  # 防止子部件被完全折叠
+        splitter.setHandleWidth(1)
+        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter)
-        
-        # 左侧面板
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(5, 5, 5, 5)  # 减少边距
-        left_layout.setSpacing(5)  # 减少间距
-        
-        # 分类树
-        self.category_tree = QTreeWidget()
-        self.category_tree.setHeaderLabel("")
-        self.category_tree.setMinimumWidth(200)
-        self.category_tree.setMaximumWidth(300)
-        self.category_tree.itemClicked.connect(self.on_category_clicked)
-        self.category_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.category_tree.customContextMenuRequested.connect(self.show_category_context_menu)
-        left_layout.addWidget(self.category_tree)
-        
-        # 右侧面板
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距，让内容占满整个区域
-        right_layout.setSpacing(0)  # 移除间距
-        
-        # 搜索框
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("搜索工具...")
-        self.search_input.textChanged.connect(self.search_tools)
-        right_layout.addWidget(self.search_input)
-        
-        # 创建堆叠式布局
-        self.right_stack = QStackedWidget()
-        self.right_stack.setContentsMargins(0, 0, 0, 0)  # 移除边距
-        right_layout.addWidget(self.right_stack)
-        
-        # 工具列表页面
-        self.tools_page = QWidget()
-        tools_layout = QVBoxLayout(self.tools_page)
-        tools_layout.setContentsMargins(5, 5, 5, 5)  # 保持工具列表的边距
-        tools_layout.setSpacing(5)  # 保持工具列表的间距
-        
-        # 工具列表/网格
-        self.tools_widget = QWidget()
-        self.tools_layout = QVBoxLayout(self.tools_widget)
-        self.tools_layout.setContentsMargins(0, 0, 0, 0)  # 移除内边距
-        
-        # 使用QListWidget，一行一个工具
-        self.tools_list = QListWidget()
-        self.tools_list.setViewMode(QListWidget.ViewMode.ListMode)
-        self.tools_list.setSpacing(4)  # 设置间距
-        self.tools_list.setResizeMode(QListWidget.ResizeMode.Adjust)
-        self.tools_list.setMovement(QListWidget.Movement.Static)
-        self.tools_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tools_list.customContextMenuRequested.connect(self.show_context_menu)
-        self.tools_list.itemDoubleClicked.connect(self.launch_tool)
-        
+
+        # 左侧导航栏
+        nav_panel = QWidget()
+        nav_layout = QVBoxLayout(nav_panel)
+        nav_layout.setContentsMargins(5, 5, 5, 5)
+        nav_layout.setSpacing(10)
+        # 固定导航按钮
+        self.btn_safe_tools = QPushButton("安全工具")
+        self.btn_safe_tools.setCheckable(True)
+        self.btn_safe_tools.setChecked(True)
+        self.btn_safe_tools.clicked.connect(lambda: self.switch_nav('safe'))
+        self.btn_code_tools = QPushButton("编码与解码")
+        self.btn_code_tools.setCheckable(True)
+        self.btn_code_tools.setChecked(False)
+        self.btn_code_tools.clicked.connect(lambda: self.switch_nav('code'))
+        nav_layout.addWidget(self.btn_safe_tools)
+        nav_layout.addWidget(self.btn_code_tools)
+        nav_layout.addStretch()
+        splitter.addWidget(nav_panel)
+
+        # 右侧内容区（后续填充树形大纲和工具列表/CyberChef）
+        self.right_panel = QWidget()
+        self.right_layout = QVBoxLayout(self.right_panel)
+        self.right_layout.setContentsMargins(0, 0, 0, 0)
+        self.right_layout.setSpacing(0)
+        splitter.addWidget(self.right_panel)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+
+        # 初始化导航状态
+        self.switch_nav('safe')
+
+        # 创建菜单栏
+        self.create_menu()
+        # 创建状态栏
+        self.create_status_bar()
         # 设置样式
-        self.tools_list.setStyleSheet("""
+        self.apply_theme()
+        print("界面初始化完成")
+
+    def switch_nav(self, nav):
+        """切换导航（safe/code）"""
+        # 清空右侧内容区
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        if nav == 'safe':
+            self.btn_safe_tools.setChecked(True)
+            self.btn_code_tools.setChecked(False)
+            # --- 安全工具树形大纲和工具列表 ---
+            container = QWidget()
+            container_layout = QHBoxLayout(container)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(0)
+            # 树形大纲
+            self.outline_tree = QTreeWidget()
+            self.outline_tree.setHeaderLabel('工具分类大纲')
+            self.outline_tree.setMinimumWidth(220)
+            self.outline_tree.setMaximumWidth(320)
+            self.outline_tree.itemClicked.connect(self.on_outline_clicked)
+            container_layout.addWidget(self.outline_tree)
+            # 工具列表
+            self.tools_list = QListWidget()
+            self.tools_list.setViewMode(QListWidget.ViewMode.ListMode)
+            self.tools_list.setSpacing(4)
+            self.tools_list.setResizeMode(QListWidget.ResizeMode.Adjust)
+            self.tools_list.setMovement(QListWidget.Movement.Static)
+            self.tools_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            self.tools_list.customContextMenuRequested.connect(self.show_context_menu)
+            self.tools_list.itemDoubleClicked.connect(self.launch_tool)
+            container_layout.addWidget(self.tools_list)
+            self.right_layout.addWidget(container)
+            # 搜索框
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("搜索工具...")
+            self.search_input.textChanged.connect(self.search_tools)
+            self.right_layout.insertWidget(0, self.search_input)
+            # 刷新树形大纲和工具列表
+            self.refresh_outline_and_tools()
+        else:
+            self.btn_safe_tools.setChecked(False)
+            self.btn_code_tools.setChecked(True)
+            # --- 编码与解码页面 ---
+            # 复用原有CyberChef页面逻辑
+            self.show_cyberchef()
+
+    def refresh_outline_and_tools(self):
+        """根据所有工具的分类字段动态生成树形大纲，并显示所有工具"""
+        self.outline_tree.clear()
+        # 构建分类树结构
+        tree_dict = {}
+        for t in self.config.tools:
+            cat = t.get('category', '')
+            if '/' in cat:
+                first, second = cat.split('/', 1)
+            else:
+                first, second = cat, ''
+            if first not in tree_dict:
+                tree_dict[first] = {}
+            if second:
+                tree_dict[first][second] = tree_dict[first].get(second, 0) + 1
+        # 添加到QTreeWidget
+        for first in sorted(tree_dict.keys()):
+            first_item = QTreeWidgetItem([first])
+            has_child = False
+            for second in sorted(tree_dict[first].keys()):
+                second_item = QTreeWidgetItem([second])
+                first_item.addChild(second_item)
+                has_child = True
+            self.outline_tree.addTopLevelItem(first_item)
+            if has_child:
+                first_item.setExpanded(True)
+        # 默认显示所有工具
+        self.update_tools_list_for_outline()
+
+    def on_outline_clicked(self, item):
+        """点击树形大纲分类，显示对应工具"""
+        # 获取完整分类路径
+        path = []
+        cur = item
+        while cur:
+            path.insert(0, cur.text(0))
+            cur = cur.parent()
+        if len(path) == 1:
+            # 一级分类
+            cat = path[0]
+            tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category', '').split('/')[0] == cat]
+        elif len(path) == 2:
+            cat = '/'.join(path)
+            tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category', '') == cat]
+        else:
+            tools = [Tool.from_dict(t) for t in self.config.tools]
+        self.show_tools_list(tools)
+
+    def update_tools_list_for_outline(self):
+        """显示所有工具（或可根据需要显示默认分类）"""
+        tools = [Tool.from_dict(t) for t in self.config.tools]
+        self.show_tools_list(tools)
+
+    def show_tools_list(self, tools):
+        self.tools_list.clear()
+        self.tools_list.setIconSize(QSize(40, 40))  # 图标更大
+        for tool in tools:
+            item = QListWidgetItem()
+            # 图标优先级：自定义icon_path > 类型emoji
+            if tool.icon_path and os.path.exists(tool.icon_path):
+                icon = QIcon(tool.icon_path)
+                item.setIcon(icon)
+            else:
+                emoji_map = {
+                    "exe": "⚙️",
+                    "java8_gui": "☕",
+                    "java11_gui": "☕",
+                    "java8": "☕",
+                    "java11": "☕",
+                    "python": "🐍",
+                    "powershell": "💻",
+                    "batch": "📜",
+                    "url": "🌐",
+                    "folder": "📁",
+                }
+                emoji = emoji_map.get(tool.tool_type, "🛠️")
+                item.setText(f"{emoji}  {tool.name}")
+            # 始终显示名称，名称加粗，区域更大
+            if not item.text():
+                item.setText(tool.name)
+            font = QFont("Microsoft YaHei", 12, QFont.Weight.Bold)
+            item.setFont(font)
+            item.setSizeHint(QSize(0, 54))  # 区域更高
+            desc = tool.description or ""
+            tooltip = f"<b>{tool.name}</b><br>类型: {tool.tool_type}<br>路径: {tool.path}"
+            if desc:
+                tooltip += f"<br>描述: {desc}"
+            item.setToolTip(tooltip)
+            item.setData(Qt.ItemDataRole.UserRole, tool)
+            self.tools_list.addItem(item)
+        # 美化列表整体样式
+        self.tools_list.setStyleSheet('''
             QListWidget {
-                background: #ffffff;
-                border: 1px solid #e1e8ed;
-                border-radius: 8px;
+                background: #fff;
+                border: none;
                 outline: none;
                 padding: 8px;
             }
             QListWidget::item {
-                background: #ffffff;
+                background: #f8fafd;
                 border: 1px solid #e1e8ed;
-                border-radius: 6px;
-                padding: 8px;
-                margin: 2px;
-                min-height: 50px;
+                border-radius: 10px;
+                margin: 6px 0;
+                min-height: 54px;
+                padding-left: 10px;
+                font-size: 15px;
             }
             QListWidget::item:selected {
                 background: #e3f2fd;
-                border: 1px solid #1da1f2;
+                border: 1.5px solid #1da1f2;
             }
             QListWidget::item:hover {
-                background: #f8f9fa;
-                border: 1px solid #1da1f2;
+                background: #f0f6ff;
+                border: 1.5px solid #1da1f2;
             }
-        """)
-        
-        self.tools_layout.addWidget(self.tools_list)
-        
-        # 添加分页控件
-        pagination_widget = QWidget()
-        pagination_layout = QHBoxLayout(pagination_widget)
-        pagination_layout.setContentsMargins(5, 5, 5, 5)
-        
-        self.prev_btn = QPushButton("上一页")
-        self.prev_btn.clicked.connect(self.prev_page)
-        self.prev_btn.setEnabled(False)
-        
-        self.page_label = QLabel("第 1 / 1 页   共 0 个工具")
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.next_btn = QPushButton("下一页")
-        self.next_btn.clicked.connect(self.next_page)
-        self.next_btn.setEnabled(False)
-        
-        pagination_layout.addWidget(self.prev_btn)
-        pagination_layout.addWidget(self.page_label)
-        pagination_layout.addWidget(self.next_btn)
-        
-        self.tools_layout.addWidget(pagination_widget)
-        tools_layout.addWidget(self.tools_widget)
-        
-        # CyberChef页面
-        self.cyberchef_page = QWidget()
-        cyberchef_layout = QVBoxLayout(self.cyberchef_page)
-        cyberchef_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距，让CyberChef占满整个区域
-        cyberchef_layout.setSpacing(0)  # 移除间距
-        self.cyberchef_webview = QWebEngineView()
-        self.cyberchef_webview.setMinimumSize(800, 600)  # 设置最小尺寸
-        
-        # 设置CyberChef文件夹路径
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        cyberchef_dir = os.path.join(current_dir, "CyberChef")
-        index_path = os.path.join(cyberchef_dir, "index.html")
-        
-        print(f"当前目录: {current_dir}")
-        print(f"CyberChef目录: {cyberchef_dir}")
-        print(f"index.html路径: {index_path}")
-        print(f"CyberChef目录是否存在: {os.path.exists(cyberchef_dir)}")
-        print(f"index.html是否存在: {os.path.exists(index_path)}")
-        
-        # 检查并加载CyberChef
-        if os.path.exists(index_path):
-            print(f"正在加载本地CyberChef: {index_path}")
-            url = QUrl.fromLocalFile(index_path)
-            print(f"加载URL: {url.toString()}")
-            self.cyberchef_webview.setUrl(url)
-        else:
-            print("未找到本地CyberChef，使用在线版本")
-            self.cyberchef_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
-        
-        # 连接加载完成信号
-        self.cyberchef_webview.loadFinished.connect(self.on_cyberchef_loaded)
-        
-        cyberchef_layout.addWidget(self.cyberchef_webview)
-        
-        # 添加页面到堆叠式布局
-        self.right_stack.addWidget(self.tools_page)
-        self.right_stack.addWidget(self.cyberchef_page)
-        
-        # 添加到分割器
-        splitter.addWidget(left_panel)
-        splitter.addWidget(right_panel)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
-        
-        # 创建菜单栏
-        self.create_menu()
-        
-        # 创建状态栏
-        self.create_status_bar()
-        
-        # 设置样式
-        self.apply_theme()
-        print("界面初始化完成")
+        ''')
     
     def create_menu(self):
         """创建菜单栏"""
@@ -635,11 +719,6 @@ class MainWindow(QMainWindow):
         add_tool_action.setShortcut(QKeySequence("Ctrl+N"))
         add_tool_action.triggered.connect(self.add_tool)
         file_menu.addAction(add_tool_action)
-        
-        add_category_action = QAction("添加分类", self)
-        add_category_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
-        add_category_action.triggered.connect(self.add_category)
-        file_menu.addAction(add_category_action)
         
         file_menu.addSeparator()
         
@@ -729,11 +808,10 @@ class MainWindow(QMainWindow):
         self.search_input.selectAll()
     
     def refresh_data(self):
-        """刷新数据"""
+        """刷新数据（移除category_tree相关逻辑）"""
         self.update_status_stats()
-        current_item = self.category_tree.currentItem()
-        if current_item:
-            self.update_tools_list(current_item.text(0))
+        # 只刷新工具大纲和工具列表
+        self.refresh_outline_and_tools()
         self.status_label.setText("数据已刷新")
     
     def toggle_fullscreen(self):
@@ -788,7 +866,7 @@ class MainWindow(QMainWindow):
         about_text.setHtml('''
         <div style="font-size:15px;line-height:1.8;">
         <b>AppLauncher - 智能程序启动与编码助手</b><br><br>
-        <b>版本：</b>2.0<br>
+        <b>版本：</b>1.0<br>
         <b>功能：</b>工具管理、分类组织、快速启动、CyberChef集成<br><br>
         <b>支持多种工具类型：</b><br>
         • GUI应用、命令行工具<br>
@@ -835,19 +913,12 @@ class MainWindow(QMainWindow):
         self.stats_label.setText(stats_text)
     
     def load_data(self):
-        """加载数据"""
-        self.update_category_tree()
-        self.current_page = 1
-        self.update_tools_list()
+        """加载数据（已不再需要分类树）"""
+        pass
     
     def update_category_tree(self):
-        """更新分类树"""
-        self.category_tree.clear()
-        # 只显示一级分类，不显示子分类
-        for category in self.config.categories:
-            item = QTreeWidgetItem([category])
-            item.setFont(0, QFont("Microsoft YaHei", 14, QFont.Weight.Bold))
-            self.category_tree.addTopLevelItem(item)
+        """已废弃：分类树相关逻辑移除"""
+        pass
     
     def update_tools_list(self, category=None):
         """更新工具列表，支持分页和全部工具展示"""
@@ -1072,14 +1143,13 @@ class MainWindow(QMainWindow):
         tool = item.data(Qt.ItemDataRole.UserRole)
         if not tool:
             return
-            
         dialog = AddToolDialog(self.config.categories, self)
         
         # 设置当前值
         type_mapping_reverse = {
             "exe": "GUI应用",
             "java8_gui": "java8图形化",
-            "java11_gui": "java11图形化", 
+            "java11_gui": "java11图形化",
             "java8": "java8",
             "java11": "java11",
             "python": "python",
@@ -1165,8 +1235,26 @@ class MainWindow(QMainWindow):
             subprocess.Popen(["cmd", "/k", f"cd /d {path}"])
     
     def show_cyberchef(self):
-        """显示CyberChef"""
-        self.right_stack.setCurrentWidget(self.cyberchef_page)
+        """显示CyberChef页面，兼容新版右侧内容区"""
+        # 清空右侧内容区
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        # 如果未初始化则初始化
+        if not hasattr(self, 'cyberchef_webview'):
+            self.cyberchef_webview = QWebEngineView()
+            self.cyberchef_webview.setMinimumSize(800, 600)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            cyberchef_dir = os.path.join(current_dir, "CyberChef")
+            index_path = os.path.join(cyberchef_dir, "index.html")
+            if os.path.exists(index_path):
+                url = QUrl.fromLocalFile(index_path)
+                self.cyberchef_webview.setUrl(url)
+            else:
+                self.cyberchef_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
+            self.cyberchef_webview.loadFinished.connect(self.on_cyberchef_loaded)
+        self.right_layout.addWidget(self.cyberchef_webview)
     
     def set_theme(self, theme_name):
         self.config.theme = theme_name
@@ -1267,7 +1355,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(qss)
     
     def export_config(self):
-        """导出配置"""
+        """导出配置，包含所有工具及分类信息"""
         path, _ = QFileDialog.getSaveFileName(
             self, "导出配置", "", "JSON文件 (*.json)"
         )
@@ -1275,7 +1363,6 @@ class MainWindow(QMainWindow):
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump({
-                        "categories": self.config.categories,
                         "tools": self.config.tools,
                         "theme": self.config.theme,
                         "view_mode": self.config.view_mode
@@ -1285,7 +1372,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "错误", f"导出失败: {str(e)}")
     
     def import_config(self):
-        """导入配置"""
+        """导入配置，自动刷新树形大纲和工具列表"""
         path, _ = QFileDialog.getOpenFileName(
             self, "导入配置", "", "JSON文件 (*.json)"
         )
@@ -1293,12 +1380,11 @@ class MainWindow(QMainWindow):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                self.config.categories = data.get("categories", [])
                 self.config.tools = data.get("tools", [])
-                self.config.theme = data.get("theme", "light")
+                self.config.theme = data.get("theme", "modern_light")
                 self.config.view_mode = data.get("view_mode", "list")
                 self.config.save_config()
-                self.load_data()
+                self.refresh_outline_and_tools()
                 self.apply_theme()
                 QMessageBox.information(self, "成功", "配置导入成功")
             except Exception as e:
@@ -1410,11 +1496,11 @@ class MainWindow(QMainWindow):
             self.update_tools_list(parent_name)
 
     def resizeEvent(self, event):
-        """窗口大小变化事件"""
+        """窗口大小变化事件，兼容新版右侧内容区"""
         super().resizeEvent(event)
-        # 确保CyberChef页面能够正确适应窗口大小
-        if self.right_stack.currentWidget() == self.cyberchef_page:
-            self.cyberchef_webview.resize(self.cyberchef_page.size())
+        # 兼容新版：如果右侧内容区有CyberChef页面则自适应
+        if hasattr(self, 'cyberchef_webview') and self.cyberchef_webview.parent() == self.right_panel:
+            self.cyberchef_webview.resize(self.right_panel.size())
 
     def on_cyberchef_loaded(self, success):
         """CyberChef加载完成后的处理"""
@@ -1667,74 +1753,172 @@ class MainWindow(QMainWindow):
         dialog.exec()
     
     def show_recent_tools(self):
-        """显示最近启动的工具（美化弹窗，修复按钮和图标）"""
+        """显示最近启动的工具（紧凑单列布局）"""
         if not self.config.recent_tools:
             QMessageBox.information(self, "最近启动的工具", "暂无最近启动的工具")
             return
+
         dialog = QDialog(self)
         dialog.setWindowTitle("🕒 最近启动的工具")
-        dialog.setMinimumSize(420, 340)
+        dialog.setMinimumSize(480, 340)
+        dialog.resize(540, 400)
+
+        # 居中
+        screen = QApplication.primaryScreen().geometry()
+        dialog.move((screen.width() - dialog.width()) // 2,
+                   (screen.height() - dialog.height()) // 2)
+
         dialog.setStyleSheet("""
             QDialog {
                 background: #fff;
-                border-radius: 14px;
+                border-radius: 10px;
             }
-            QLabel, QListWidget {
+            QLabel {
                 font-family: 'Microsoft YaHei', '微软雅黑', Arial;
             }
-            QListWidget {
-                border: 1px solid #e1e8ed;
-                border-radius: 8px;
+            QScrollArea {
+                border: none;
                 background: #fafbfc;
-                font-size: 15px;
-                margin-bottom: 10px;
             }
-            QListWidget::item {
-                padding: 10px 8px;
-                border-bottom: 1px solid #f0f0f0;
+            QWidget#tool_item {
+                background: #fff;
+                border: 1px solid #e1e8ed;
+                border-radius: 6px;
+                margin: 2px;
             }
-            QListWidget::item:hover {
+            QWidget#tool_item:hover {
                 background: #e3f2fd;
-            }
-            QListWidget::item:selected {
-                background: #1da1f2;
-                color: #fff;
+                border-color: #1da1f2;
             }
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
                 color: #fff;
-                border-radius: 8px;
-                font-size: 15px;
+                border-radius: 7px;
+                font-size: 14px;
                 font-weight: bold;
-                min-width: 90px;
-                min-height: 34px;
-                margin: 0 8px;
+                min-width: 70px;
+                min-height: 26px;
+                margin: 0 6px;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
             }
         """)
+
         layout = QVBoxLayout(dialog)
-        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>🕒 最近启动的工具</h2>")
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+
+        # 标题
+        title = QLabel("<h3 style='color:#1da1f2;margin-bottom:2px;'>🕒 最近启动的工具</h3>")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        info_label = QLabel("<span style='color:#666;font-size:13px;'>双击工具名称可直接启动</span>")
+
+        # 提示信息
+        info_label = QLabel("<span style='color:#666;font-size:12px;'>双击工具项可直接启动</span>")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(info_label)
-        list_widget = QListWidget()
+
+        # 滚动区域
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        container = QWidget()
+        v_layout = QVBoxLayout(container)
+        v_layout.setContentsMargins(2, 2, 2, 2)
+        v_layout.setSpacing(5)
+
         for i, tool_name in enumerate(self.config.recent_tools[:20], 1):
-            item = QListWidgetItem(f"{i:2d}. 🛠️ {tool_name}")
-            item.setData(Qt.ItemDataRole.UserRole, tool_name)
-            list_widget.addItem(item)
-        list_widget.itemDoubleClicked.connect(lambda item: self.launch_recent_tool(item, dialog))
-        layout.addWidget(list_widget)
+            tool = None
+            for tool_data in self.config.tools:
+                if tool_data["name"] == tool_name:
+                    tool = Tool.from_dict(tool_data)
+                    break
+            if tool:
+                tool_item = QWidget()
+                tool_item.setObjectName("tool_item")
+                tool_item.setCursor(Qt.CursorShape.PointingHandCursor)
+                item_layout = QHBoxLayout(tool_item)
+                item_layout.setContentsMargins(7, 4, 7, 4)
+                item_layout.setSpacing(7)
+
+                # 左侧：序号和图标
+                left_widget = QWidget()
+                left_layout = QHBoxLayout(left_widget)
+                left_layout.setContentsMargins(0, 0, 0, 0)
+                left_layout.setSpacing(2)
+                left_widget.setFixedWidth(38)
+
+                number_label = QLabel(f"{i}.")
+                number_label.setStyleSheet("font-size: 11px; color: #95a5a6; min-width: 12px; font-weight: bold;")
+                number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                left_layout.addWidget(number_label)
+
+                icon_container = QWidget()
+                icon_container.setFixedSize(18, 18)
+                icon_layout = QVBoxLayout(icon_container)
+                icon_layout.setContentsMargins(0, 0, 0, 0)
+                icon_label = QLabel()
+                if tool.icon_path and os.path.exists(tool.icon_path):
+                    icon = QIcon(tool.icon_path)
+                    pixmap = icon.pixmap(14, 14)
+                    icon_label.setPixmap(pixmap)
+                else:
+                    default_icon = self._get_tool_icon(tool)
+                    icon_label.setText(f"<span style='font-size:12px;'>{default_icon}</span>")
+                icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                icon_layout.addWidget(icon_label)
+                left_layout.addWidget(icon_container)
+                item_layout.addWidget(left_widget)
+
+                # 中间：信息
+                info_container = QWidget()
+                info_layout = QVBoxLayout(info_container)
+                info_layout.setContentsMargins(0, 0, 0, 0)
+                info_layout.setSpacing(1)
+
+                name_label = QLabel(tool_name)
+                name_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; padding: 0;")
+                name_label.setWordWrap(True)
+                name_label.setMinimumHeight(12)
+                info_layout.addWidget(name_label)
+
+                details_label = QLabel(f"{tool.tool_type} | 启动:{tool.launch_count}")
+                details_label.setStyleSheet("font-size: 10px; color: #7f8c8d; padding: 0;")
+                info_layout.addWidget(details_label)
+
+                item_layout.addWidget(info_container, 1)
+
+                # 右侧：时间
+                if tool.last_launch:
+                    time_container = QWidget()
+                    time_container.setFixedWidth(60)
+                    time_layout = QVBoxLayout(time_container)
+                    time_layout.setContentsMargins(0, 0, 0, 0)
+                    time_label = QLabel(tool.last_launch[:10])
+                    time_label.setStyleSheet("font-size: 10px; color: #95a5a6;")
+                    time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    time_layout.addWidget(time_label)
+                    item_layout.addWidget(time_container)
+
+                tool_item.setProperty("tool", tool)
+                tool_item.mouseDoubleClickEvent = lambda event, t=tool: self.launch_tool_from_recent(t, dialog)
+                v_layout.addWidget(tool_item)
+
+        v_layout.addStretch(1)
+        scroll_area.setWidget(container)
+        layout.addWidget(scroll_area)
+
+        # 按钮
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         clear_button = QPushButton("清空历史")
-        clear_button.setFixedWidth(110)
+        clear_button.setFixedWidth(70)
         clear_button.clicked.connect(lambda: self.clear_recent_history(dialog))
         close_button = QPushButton("关闭")
-        close_button.setFixedWidth(90)
+        close_button.setFixedWidth(60)
         close_button.clicked.connect(dialog.accept)
         button_layout.addWidget(clear_button)
         button_layout.addWidget(close_button)
@@ -1742,29 +1926,17 @@ class MainWindow(QMainWindow):
         layout.addLayout(button_layout)
         dialog.exec()
     
-    def launch_recent_tool(self, item, dialog):
-        """启动最近使用的工具"""
-        tool_name = item.data(Qt.ItemDataRole.UserRole)
-        if tool_name:
-            # 查找对应的工具
-            for tool_data in self.config.tools:
-                if tool_data["name"] == tool_name:
-                    tool = Tool.from_dict(tool_data)
-                    try:
-                        # 启动工具
-                        self._execute_tool(tool)
-                        # 更新最近使用记录
-                        self.config.add_to_recent(tool_name)
-                        self.config.save_config()
-                        # 关闭对话框
-                        dialog.accept()
-                        self.status_label.setText(f"已启动: {tool_name}")
-                        return
-                    except Exception as e:
-                        QMessageBox.warning(self, "启动失败", f"启动工具 '{tool_name}' 失败:\n{str(e)}")
-                        return
-            
-            QMessageBox.warning(self, "工具不存在", f"工具 '{tool_name}' 已不存在")
+    def launch_tool_from_recent(self, tool, dialog):
+        """从最近工具列表启动工具"""
+        try:
+            self._execute_tool(tool)
+            self.config.add_to_recent(tool.name)
+            self.config.save_config()
+            dialog.accept()
+            self.status_label.setText(f"已启动: {tool.name}")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
+            self.status_label.setText(f"启动失败: {tool.name}")
     
     def clear_recent_history(self, dialog):
         """清空最近使用历史（美化确认弹窗按钮）"""
@@ -1996,61 +2168,50 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"启动失败: {tool.name}")
     
     def show_context_menu(self, position):
-        """显示右键菜单"""
+        """显示工具右键菜单，优化：仅右键空白处显示新增工具"""
         item = self.tools_list.itemAt(position)
-        if not item:
-            return
-        
         menu = QMenu()
-        
-        # 工具节点
-        tool = item.data(Qt.ItemDataRole.UserRole)
-        if tool and tool.tool_type == "placeholder":
-            # 占位符工具，显示特殊菜单
-            add_tool_action = QAction("添加工具到此分类", self)
-            add_tool_action.triggered.connect(partial(self.add_tool_to_subcategory, tool.subcategory))
-            menu.addAction(add_tool_action)
-            
-            delete_action = QAction("删除此空分类", self)
-            delete_action.triggered.connect(partial(self.delete_placeholder_subcategory, tool))
+        if item is not None and item.data(Qt.ItemDataRole.UserRole):
+            tool = item.data(Qt.ItemDataRole.UserRole)
+            launch_action = QAction("启动", self)
+            launch_action.triggered.connect(lambda: self.launch_tool(item))
+            menu.addAction(launch_action)
+            edit_action = QAction("编辑", self)
+            edit_action.triggered.connect(lambda: self.edit_tool(item))
+            menu.addAction(edit_action)
+            open_folder_action = QAction("打开所有路径文件夹", self)
+            open_folder_action.triggered.connect(lambda: self.open_tool_folder(item, all_paths=True))
+            menu.addAction(open_folder_action)
+            open_cmd_action = QAction("打开命令行", self)
+            open_cmd_action.triggered.connect(lambda: self.open_tool_cmd(item))
+            menu.addAction(open_cmd_action)
+            delete_action = QAction("删除", self)
+            delete_action.triggered.connect(lambda: self.delete_tool(item))
             menu.addAction(delete_action)
         else:
-            # 普通工具，显示完整的工具菜单
-            launch_action = QAction("启动", self)
-            launch_action.triggered.connect(partial(self.launch_tool, item))
-            menu.addAction(launch_action)
-            
-            menu.addSeparator()
-            
-            edit_action = QAction("编辑", self)
-            edit_action.triggered.connect(partial(self.edit_tool, item))
-            menu.addAction(edit_action)
-            
-            delete_action = QAction("删除", self)
-            delete_action.triggered.connect(partial(self.delete_tool, item))
-            menu.addAction(delete_action)
-            
-            menu.addSeparator()
-            
-            open_folder_action = QAction("打开所在文件夹", self)
-            open_folder_action.triggered.connect(partial(self.open_tool_folder, item))
-            menu.addAction(open_folder_action)
-            
-            open_cmd_action = QAction("打开命令行", self)
-            open_cmd_action.triggered.connect(partial(self.open_tool_cmd, item))
-            menu.addAction(open_cmd_action)
-        
+            # 仅右键空白处显示新增工具
+            add_action = QAction("新增工具", self)
+            add_action.triggered.connect(self.add_tool)
+            menu.addAction(add_action)
         menu.exec(self.tools_list.viewport().mapToGlobal(position))
-    
-    def edit_tool_card(self, tool):
-        """编辑工具卡片"""
-        dialog = AddToolDialog(self.config.categories, self)
-        
-        # 设置当前值
+
+    def edit_tool(self, item):
+        """编辑工具，支持修改分类，保存后自动刷新大纲"""
+        tool = item.data(Qt.ItemDataRole.UserRole)
+        if not tool:
+            return
+        dialog = AddToolDialog([], self)
+        dialog.name_edit.setText(tool.name)
+        dialog.path_edit.setText(tool.path)
+        dialog.category_combo.setEditText(tool.category)
+        dialog.args_edit.setText(tool.args)
+        dialog.icon_edit.setText(tool.icon_path or "")
+        dialog.desc_edit.setPlainText(tool.description)
+        # 设置工具类型
         type_mapping_reverse = {
             "exe": "GUI应用",
             "java8_gui": "java8图形化",
-            "java11_gui": "java11图形化", 
+            "java11_gui": "java11图形化",
             "java8": "java8",
             "java11": "java11",
             "python": "python",
@@ -2059,95 +2220,69 @@ class MainWindow(QMainWindow):
             "url": "网页",
             "folder": "文件夹"
         }
-        
-        dialog.name_edit.setText(tool.name)
-        dialog.path_edit.setText(tool.path)
-        dialog.category_combo.setCurrentText(tool.category)
-        dialog.args_edit.setText(tool.args)
-        dialog.icon_edit.setText(tool.icon_path or "")
-        dialog.desc_edit.setPlainText(tool.description)
-        
-        # 设置工具类型
         tool_type = type_mapping_reverse.get(tool.tool_type, "GUI应用")
         dialog.type_combo.setCurrentText(tool_type)
-        
         if dialog.exec() == QDialog.DialogCode.Accepted:
             tool_data = dialog.get_tool_data()
             tool_data["launch_count"] = tool.launch_count
             tool_data["last_launch"] = tool.last_launch
-            
-            # 检查是否添加了新分类
-            new_category = tool_data["category"]
-            if new_category not in self.config.categories:
-                self.config.categories.append(new_category)
-                print(f"编辑时添加新分类: {new_category}")
-            
             # 更新工具数据
-            index = self.config.tools.index(tool.to_dict())
-            self.config.tools[index] = tool_data
+            for idx, t in enumerate(self.config.tools):
+                if t.get('name') == tool.name and t.get('path') == tool.path and t.get('category') == tool.category:
+                    self.config.tools[idx] = tool_data
+                    break
             self.config.save_config()
-            self.update_category_tree()  # 更新分类树
-            self.update_tools_list()  # 重新加载当前分类的工具
-    
-    def delete_tool_card(self, tool):
-        """删除工具卡片"""
+            self.refresh_outline_and_tools()
+
+    def add_tool(self):
+        """新增工具，保存后自动刷新大纲"""
+        dialog = AddToolDialog([], self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            tool_data = dialog.get_tool_data()
+            self.config.tools.append(tool_data)
+            self.config.save_config()
+            self.refresh_outline_and_tools()
+
+    def delete_tool(self, item):
+        """删除工具，自动刷新大纲"""
+        tool = item.data(Qt.ItemDataRole.UserRole)
+        if not tool:
+            return
         reply = QMessageBox.question(
             self, "确认删除",
             f"确定要删除工具 '{tool.name}' 吗？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        
-        if reply == QMessageBox.Yes:
-            self.config.tools.remove(tool.to_dict())
+        if reply == QMessageBox.StandardButton.Yes:
+            for idx, t in enumerate(self.config.tools):
+                if t.get('name') == tool.name and t.get('path') == tool.path and t.get('category') == tool.category:
+                    del self.config.tools[idx]
+                    break
             self.config.save_config()
-            self.update_tools_list()  # 重新加载当前分类的工具
-    
-    def open_tool_folder_card(self, tool):
-        """打开工具所在文件夹"""
-        path = os.path.dirname(tool.path)
-        if os.path.exists(path):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
-    
-    def open_tool_cmd_card(self, tool):
-        """打开工具命令行"""
-        path = os.path.dirname(tool.path)
-        if os.path.exists(path):
-            subprocess.Popen(["cmd", "/k", f"cd /d {path}"])
-    
-    def add_tool(self):
-        """添加工具"""
-        dialog = AddToolDialog(self.config.categories, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            tool_data = dialog.get_tool_data()
-            
-            # 检查是否添加了新分类
-            new_category = tool_data["category"]
-            if new_category not in self.config.categories:
-                self.config.categories.append(new_category)
-                print(f"添加新分类: {new_category}")
-            
-            self.config.tools.append(tool_data)
-            self.config.save_config()
-            self.update_category_tree()  # 更新分类树
-            
-            # 如果当前选中的是工具所属的分类，则刷新工具列表
-            current_item = self.category_tree.currentItem()
-            if current_item and current_item.text(0) == tool_data["category"]:
-                self.update_tools_list(tool_data["category"])
-    
-    def add_category(self):
-        """添加分类"""
-        category, ok = QInputDialog.getText(
-            self, "添加分类", "请输入分类名称:"
-        )
-        if ok and category:
-            if category not in self.config.categories:
-                self.config.categories.append(category)
-                self.config.save_config()
-                self.update_category_tree()
-            else:
-                QMessageBox.warning(self, "错误", "该分类已存在")
+            self.refresh_outline_and_tools()
+
+    def open_tool_folder(self, item, all_paths=False):
+        """打开工具所有路径文件夹"""
+        tool = item.data(Qt.ItemDataRole.UserRole)
+        if not tool:
+            return
+        paths = [tool.path]
+        if all_paths and hasattr(tool, 'extra_paths'):
+            paths += tool.extra_paths
+        for path in paths:
+            folder = os.path.dirname(path)
+            if os.path.exists(folder):
+                QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+
+    def open_tool_cmd(self, item):
+        """打开工具所在路径命令行"""
+        tool = item.data(Qt.ItemDataRole.UserRole)
+        if not tool:
+            return
+        folder = os.path.dirname(tool.path)
+        if os.path.exists(folder):
+            subprocess.Popen(["cmd", "/k", f"cd /d {folder}"])
     
     def add_favorite(self, tool_name):
         """添加到收藏"""

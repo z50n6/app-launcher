@@ -1,26 +1,81 @@
 {
-    "java_cmd": "java",
-    "java_gui": "javaw",
-    "python_cmd": "python",
-    "powershell": "powershell.exe",
-    "tools": [
-        {
-            "name": "12131",
-            "path": "E:/Penetration/RedTeam/Code_Audit/Seay/Seay.exe",
-            "category": "1",
-            "sub_category": "代码审计"
-        },
-        {
-            "name": "CyberCHef",
-            "path": "E:/Penetration/RedTeam/encryption_and_decryption/CyberChef_v10.19.4/CyberChef_v10.19.4.html",
-            "category": "开发工具",
-            "sub_category": "编解码"
-        }
-    ],
-    "categories": [
-        "开发工具",
-        "其他",
-        "1",
-        "编码与解码"
-    ]
+  "categories": [
+    "安全工具",
+    "编码与解码"
+  ],
+  "tools": [
+    {
+      "args": "",
+      "category": "流量代理/抓包工具",
+      "color": "#000000",
+      "description": "网络抓包分析工具",
+      "icon_path": "E:/Penetration/RedTeam/TrafficProxyTools/Fiddler/App.ico",
+      "last_launch": null,
+      "launch_count": 1,
+      "name": "Fiddler",
+      "path": "E:/Penetration/RedTeam/TrafficProxyTools/Fiddler/Fiddler.exe",
+      "subcategory": "",
+      "tool_type": "exe"
+    },
+    {
+      "args": "",
+      "category": "流量代理/抓包工具",
+      "color": "#000000",
+      "description": "常用利器",
+      "icon_path": "D:/SoftWare/Yakit/Yakit/uninstallerIcon.ico",
+      "last_launch": null,
+      "launch_count": 0,
+      "name": "yakit",
+      "path": "D:/SoftWare/Yakit/Yakit/Yakit.exe",
+      "subcategory": "",
+      "tool_type": "exe"
+    },
+    {
+      "args": "",
+      "category": "流量代理/抓包工具",
+      "color": "#000000",
+      "description": "www",
+      "icon_path": "E:/Penetration/RedTeam/TrafficProxyTools/WiresharkPortable64/App/AppInfo/appicon.ico",
+      "last_launch": null,
+      "launch_count": 0,
+      "name": "Wireshark",
+      "path": "E:/Penetration/RedTeam/TrafficProxyTools/WiresharkPortable64/WiresharkPortable64.exe",
+      "subcategory": "",
+      "tool_type": "exe"
+    },
+    {
+      "args": "",
+      "category": "流量代理/抓包工具",
+      "color": "#000000",
+      "description": "茶杯",
+      "icon_path": "D:/SoftWare/Charles/charles.ico",
+      "last_launch": null,
+      "launch_count": 0,
+      "name": "Charles",
+      "path": "D:/SoftWare/Charles/Charles.exe",
+      "subcategory": "",
+      "tool_type": "exe"
+    },
+    {
+      "args": "",
+      "category": "流量代理/抓包工具",
+      "color": "#000000",
+      "description": "小黄鸟",
+      "icon_path": "D:/SoftWare/Reqable/data/flutter_assets/assets/images/common/app_icon.ico",
+      "last_launch": null,
+      "launch_count": 0,
+      "name": "Reqable",
+      "path": "D:/SoftWare/Reqable/Reqable.exe",
+      "subcategory": "",
+      "tool_type": "exe"
+    }
+  ],
+  "theme": "modern_light",
+  "view_mode": "grid",
+  "recent_tools": [
+    "Fiddler"
+  ],
+  "show_status_bar": "true",
+  "auto_refresh": "true",
+  "search_history": []
 }

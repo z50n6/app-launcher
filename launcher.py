@@ -639,6 +639,13 @@ class MainWindow(QMainWindow):
             self.btn_shellgen.clicked.connect(lambda: self.switch_assist_tab('shellgen'))
             self.assist_tab_bar.addWidget(self.btn_shellgen)
             self.assist_tabs.append(self.btn_shellgen)
+            # 新增Java命令编码Tab
+            self.btn_java_encode = QPushButton("Java_Exec_Encode")
+            self.btn_java_encode.setCheckable(True)
+            self.btn_java_encode.setChecked(False)
+            self.btn_java_encode.clicked.connect(lambda: self.switch_assist_tab('java_encode'))
+            self.assist_tab_bar.addWidget(self.btn_java_encode)
+            self.assist_tabs.append(self.btn_java_encode)
             self.assist_tab_bar.addStretch()
             assist_layout.addLayout(self.assist_tab_bar)
             # 下方内容区
@@ -653,6 +660,15 @@ class MainWindow(QMainWindow):
             else:
                 self.shellgen_webview.setUrl(QUrl("https://btsrk.me/"))
             self.assist_content.addWidget(self.shellgen_webview)
+            # Java命令编码页面
+            self.java_encode_webview = QWebEngineView()
+            java_encode_path = os.path.join(current_dir, "project", "java-encode", "index.html")
+            if os.path.exists(java_encode_path):
+                url = QUrl.fromLocalFile(java_encode_path)
+                self.java_encode_webview.setUrl(url)
+            else:
+                self.java_encode_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
+            self.assist_content.addWidget(self.java_encode_webview)
             assist_layout.addWidget(self.assist_content)
             self.right_layout.addWidget(assist_container)
             # 便于后续扩展tab
@@ -2367,13 +2383,16 @@ class MainWindow(QMainWindow):
 
     def switch_assist_tab(self, tab_name):
         """切换辅助工具tab"""
-        # 目前只有一个tab，后续可扩展
         for btn in self.assist_tabs:
             btn.setChecked(False)
         if tab_name == 'shellgen':
             self.btn_shellgen.setChecked(True)
             self.assist_content.setCurrentIndex(0)
             self.current_assist_tab = 'shellgen'
+        elif tab_name == 'java_encode':
+            self.btn_java_encode.setChecked(True)
+            self.assist_content.setCurrentIndex(1)
+            self.current_assist_tab = 'java_encode'
 
 if __name__ == "__main__":
     logging.info("程序开始运行...")

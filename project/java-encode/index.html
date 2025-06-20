@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>命令编码工具</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card-group">
+            <div class="input-title"><span class="emoji">👉</span>输入命令</div>
+            <div style="margin-bottom: 14px;">
+                <div id="custom-cmdtype-select" class="custom-select">
+                    <button type="button" id="cmdTypeSelectBtn">Bash</button>
+                    <ul id="cmdTypeSelectList" class="select-list" style="display:none;">
+                        <li data-value="bash">Bash</li>
+                        <li data-value="sh">Sh</li>
+                        <li data-value="powershell">PowerShell</li>
+                        <li data-value="python">Python</li>
+                        <li data-value="perl">Perl</li>
+                    </ul>
+                </div>
+            </div>
+            <textarea id="inputCmd" rows="2" placeholder="请输入要编码的命令"></textarea>
+        </div>
+        <div class="card-group">
+            <div class="input-title"><span class="emoji">🚀</span>输出命令</div>
+            <textarea id="outputCmd" rows="2" readonly></textarea>
+        </div>
+        <div class="card-group">
+            <div class="input-title"><span class="emoji">🚀</span>编码结果</div>
+            <div style="margin-bottom: 14px;">
+                <div id="custom-encode-select" class="custom-select">
+                    <button type="button" id="encodeSelectBtn">None</button>
+                    <ul id="encodeSelectList" class="select-list" style="display:none;">
+                        <li data-value="none">None</li>
+                        <li data-value="url">URL编码</li>
+                        <li data-value="double_url">双URL编码</li>
+                        <li data-value="base64">Base64编码</li>
+                    </ul>
+                </div>
+                <button onclick="encodeFinalCmd()">编码</button>
+            </div>
+            <textarea id="finalCmd" rows="2" readonly></textarea>
+            <button onclick="copyOutput('finalCmd')" style="width:100%;margin-top:16px;">复制编码结果</button>
+        </div>
+    </div>
+    <script src="js/script.js"></script>
+</body>
+</html> 

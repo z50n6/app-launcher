@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>反弹Shell命令生成器</title>   
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8f9fa; }
+        .container { max-width: 900px; margin-top: 40px; }
+        .card { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+        .tab-content { margin-top: 20px; }
+        .form-label { font-weight: 500; }
+        .output-box { background: #222; color: #0f0; font-family: 'Fira Mono', monospace; padding: 12px; border-radius: 6px; min-height: 60px; }
+        .copy-btn { float: right; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2 class="mb-4 text-center">Shell命令生成器</h2>
+    <div class="card p-4">
+        <ul class="nav nav-tabs" id="shellTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="reverse-tab" data-bs-toggle="tab" data-bs-target="#reverse" type="button" role="tab">反弹Shell</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="msf-tab" data-bs-toggle="tab" data-bs-target="#msf" type="button" role="tab">MSFVenom</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="forward-tab" data-bs-toggle="tab" data-bs-target="#forward" type="button" role="tab">正向Shell</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="hoax-tab" data-bs-toggle="tab" data-bs-target="#hoax" type="button" role="tab">Hoaxshell</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="shellTabContent">
+            <!-- 反弹Shell -->
+            <div class="tab-pane fade show active" id="reverse" role="tabpanel">
+                <form id="reverseForm">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">操作系统</label>
+                            <select class="form-select" id="reverseOS">
+                                <option value="linux">Linux</option>
+                                <option value="windows">Windows</option>
+                                <option value="macos">macOS</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">编码方式</label>
+                            <select class="form-select" id="reverseEncode">
+                                <option value="none">无</option>
+                                <option value="base64">Base64</option>
+                                <option value="url">URL编码</option>
+                                <option value="doubleurl">双重URL编码</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Shell类型</label>
+                            <select class="form-select" id="reverseType">
+                                <option value="bash">Bash</option>
+                                <option value="nc">Netcat</option>
+                                <option value="python">Python</option>
+                                <option value="perl">Perl</option>
+                                <option value="php">PHP</option>
+                                <option value="powershell">PowerShell</option>
+                                <option value="socat">Socat</option>
+                                <option value="awk">Awk</option>
+                                <option value="ruby">Ruby</option>
+                                <option value="lua">Lua</option>
+                                <option value="java">Java</option>
+                                <option value="telnet">Telnet</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">目标IP</label>
+                            <input type="text" class="form-control" id="reverseIP" placeholder="如 1.2.3.4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">目标端口</label>
+                            <input type="text" class="form-control" id="reversePort" placeholder="如 4444" required>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="generateReverseShell()">生成命令</button>
+                </form>
+                <div class="mt-3">
+                    <label class="form-label">生成命令 
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyOutput('reverseOutput')">复制</button>
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="downloadOutput('reverseOutput', getDownloadFilename('reverse'))">下载</button>
+                    </label>
+                    <div class="output-box" id="reverseOutput"></div>
+                </div>
+            </div>
+            <!-- MSFVenom -->
+            <div class="tab-pane fade" id="msf" role="tabpanel">
+                <form id="msfForm">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">操作系统</label>
+                            <select class="form-select" id="msfOS">
+                                <option value="linux">Linux</option>
+                                <option value="windows">Windows</option>
+                                <option value="macos">macOS</option>
+                                <option value="android">Android</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Payload类型</label>
+                            <select class="form-select" id="msfType">
+                                <option value="meterpreter_reverse_tcp">meterpreter_reverse_tcp</option>
+                                <option value="meterpreter_reverse_http">meterpreter_reverse_http</option>
+                                <option value="meterpreter_reverse_https">meterpreter_reverse_https</option>
+                                <option value="shell_reverse_tcp">shell_reverse_tcp</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">格式</label>
+                            <select class="form-select" id="msfFormat">
+                                <option value="exe">exe</option>
+                                <option value="elf">elf</option>
+                                <option value="apk">apk</option>
+                                <option value="raw">raw</option>
+                                <option value="psh">psh</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">LHOST</label>
+                            <input type="text" class="form-control" id="msfIP" placeholder="如 1.2.3.4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">LPORT</label>
+                            <input type="text" class="form-control" id="msfPort" placeholder="如 4444" required>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="generateMSF()">生成命令</button>
+                </form>
+                <div class="mt-3">
+                    <label class="form-label">生成命令 
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyOutput('msfOutput')">复制</button>
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="downloadOutput('msfOutput', getDownloadFilename('msf'))">下载</button>
+                    </label>
+                    <div class="output-box" id="msfOutput"></div>
+                </div>
+            </div>
+            <!-- 正向Shell -->
+            <div class="tab-pane fade" id="forward" role="tabpanel">
+                <form id="forwardForm">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">操作系统</label>
+                            <select class="form-select" id="forwardOS">
+                                <option value="linux">Linux</option>
+                                <option value="windows">Windows</option>
+                                <option value="macos">macOS</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Shell类型</label>
+                            <select class="form-select" id="forwardType">
+                                <option value="bash">Bash</option>
+                                <option value="nc">Netcat</option>
+                                <option value="python">Python</option>
+                                <option value="perl">Perl</option>
+                                <option value="php">PHP</option>
+                                <option value="powershell">PowerShell</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">编码方式</label>
+                            <select class="form-select" id="forwardEncode">
+                                <option value="none">无</option>
+                                <option value="base64">Base64</option>
+                                <option value="url">URL编码</option>
+                                <option value="doubleurl">双重URL编码</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">目标IP</label>
+                            <input type="text" class="form-control" id="forwardIP" placeholder="如 1.2.3.4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">目标端口</label>
+                            <input type="text" class="form-control" id="forwardPort" placeholder="如 4444" required>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="generateForwardShell()">生成命令</button>
+                </form>
+                <div class="mt-3">
+                    <label class="form-label">生成命令 
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyOutput('forwardOutput')">复制</button>
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="downloadOutput('forwardOutput', getDownloadFilename('forward'))">下载</button>
+                    </label>
+                    <div class="output-box" id="forwardOutput"></div>
+                </div>
+            </div>
+            <!-- Hoaxshell -->
+            <div class="tab-pane fade" id="hoax" role="tabpanel">
+                <form id="hoaxForm">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">操作系统</label>
+                            <select class="form-select" id="hoaxOS">
+                                <option value="linux">Linux</option>
+                                <option value="windows">Windows</option>
+                                <option value="macos">macOS</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Shell类型</label>
+                            <select class="form-select" id="hoaxType">
+                                <option value="python">Python</option>
+                                <option value="powershell">PowerShell</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">编码方式</label>
+                            <select class="form-select" id="hoaxEncode">
+                                <option value="none">无</option>
+                                <option value="base64">Base64</option>
+                                <option value="url">URL编码</option>
+                                <option value="doubleurl">双重URL编码</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">目标IP</label>
+                            <input type="text" class="form-control" id="hoaxIP" placeholder="如 1.2.3.4" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">目标端口</label>
+                            <input type="text" class="form-control" id="hoaxPort" placeholder="如 4444" required>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="generateHoaxShell()">生成命令</button>
+                </form>
+                <div class="mt-3">
+                    <label class="form-label">生成命令 
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyOutput('hoaxOutput')">复制</button>
+                        <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="downloadOutput('hoaxOutput', getDownloadFilename('hoax'))">下载</button>
+                    </label>
+                    <div class="output-box" id="hoaxOutput"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="text-center mt-4 text-muted">&copy; 2025 反弹Shell命令生成器 | 仅供安全测试与学习使用</footer>
+</div>
+<!-- 复制提示 -->
+<div id="copyToast" style="position: fixed; top: 30px; right: 30px; z-index: 9999; display: none; min-width: 120px; background: #222; color: #0f0; padding: 10px 24px; border-radius: 6px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.15); text-align: center;">命令已复制</div>
+<script src="js/bootstrap.bundle.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html> 

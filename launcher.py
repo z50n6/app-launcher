@@ -221,7 +221,14 @@ class CyberChefDialog(QDialog):
         
         # 创建 WebView
         self.webview = QWebEngineView(self)
-        self.webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
+        # 优化本地路径引用
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        cyberchef_index = os.path.join(current_dir, "project", "CyberChef", "index.html")
+        if os.path.exists(cyberchef_index):
+            url = QUrl.fromLocalFile(cyberchef_index)
+            self.webview.setUrl(url)
+        else:
+            self.webview.setUrl(QUrl("https://btsrk.me/"))
         layout.addWidget(self.webview)
         
         # 连接信号
@@ -1255,19 +1262,17 @@ class MainWindow(QMainWindow):
             widget = self.right_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
-        # 如果未初始化则初始化
-        if not hasattr(self, 'cyberchef_webview'):
-            self.cyberchef_webview = QWebEngineView()
-            self.cyberchef_webview.setMinimumSize(800, 600)
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            cyberchef_dir = os.path.join(current_dir, "CyberChef")
-            index_path = os.path.join(cyberchef_dir, "index.html")
-            if os.path.exists(index_path):
-                url = QUrl.fromLocalFile(index_path)
-                self.cyberchef_webview.setUrl(url)
-            else:
-                self.cyberchef_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
-            self.cyberchef_webview.loadFinished.connect(self.on_cyberchef_loaded)
+        # 每次都新建WebView，避免切换后不显示
+        self.cyberchef_webview = QWebEngineView()
+        self.cyberchef_webview.setMinimumSize(800, 600)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        cyberchef_index = os.path.join(current_dir, "project", "CyberChef", "index.html")
+        if os.path.exists(cyberchef_index):
+            url = QUrl.fromLocalFile(cyberchef_index)
+            self.cyberchef_webview.setUrl(url)
+        else:
+            self.cyberchef_webview.setUrl(QUrl("https://gchq.github.io/CyberChef/"))
+        self.cyberchef_webview.loadFinished.connect(self.on_cyberchef_loaded)
         self.right_layout.addWidget(self.cyberchef_webview)
     
     def set_theme(self, theme_name):

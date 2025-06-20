@@ -540,12 +540,17 @@ class MainWindow(QMainWindow):
         self.btn_code_tools.setCheckable(True)
         self.btn_code_tools.setChecked(False)
         self.btn_code_tools.clicked.connect(lambda: self.switch_nav('code'))
+        self.btn_assist_tools = QPushButton("辅助工具")
+        self.btn_assist_tools.setCheckable(True)
+        self.btn_assist_tools.setChecked(False)
+        self.btn_assist_tools.clicked.connect(lambda: self.switch_nav('assist'))
         nav_layout.addWidget(self.btn_safe_tools)
         nav_layout.addWidget(self.btn_code_tools)
+        nav_layout.addWidget(self.btn_assist_tools)
         nav_layout.addStretch()
         splitter.addWidget(nav_panel)
 
-        # 右侧内容区（后续填充树形大纲和工具列表/CyberChef）
+        # 右侧内容区（后续填充树形大纲和工具列表/CyberChef/辅助工具）
         self.right_panel = QWidget()
         self.right_layout = QVBoxLayout(self.right_panel)
         self.right_layout.setContentsMargins(0, 0, 0, 0)
@@ -566,7 +571,7 @@ class MainWindow(QMainWindow):
         logging.info("界面初始化完成")
 
     def switch_nav(self, nav):
-        """切换导航（safe/code）"""
+        """切换导航（safe/code/assist）"""
         # 清空右侧内容区
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
@@ -575,6 +580,7 @@ class MainWindow(QMainWindow):
         if nav == 'safe':
             self.btn_safe_tools.setChecked(True)
             self.btn_code_tools.setChecked(False)
+            self.btn_assist_tools.setChecked(False)
             # --- 安全工具树形大纲和工具列表 ---
             container = QWidget()
             container_layout = QHBoxLayout(container)
@@ -605,12 +611,56 @@ class MainWindow(QMainWindow):
             self.right_layout.insertWidget(0, self.search_input)
             # 刷新树形大纲和工具列表
             self.refresh_outline_and_tools()
-        else:
+        elif nav == 'code':
             self.btn_safe_tools.setChecked(False)
             self.btn_code_tools.setChecked(True)
+            self.btn_assist_tools.setChecked(False)
             # --- 编码与解码页面 ---
             # 复用原有CyberChef页面逻辑
             self.show_cyberchef()
+        elif nav == 'assist':
+            self.btn_safe_tools.setChecked(False)
+            self.btn_code_tools.setChecked(False)
+            self.btn_assist_tools.setChecked(True)
+            # --- 辅助工具页面 ---
+            assist_container = QWidget()
+            assist_layout = QVBoxLayout(assist_container)
+            assist_layout.setContentsMargins(0, 0, 0, 0)
+            assist_layout.setSpacing(0)
+            # 顶部tab按钮区
+            self.assist_tab_bar = QHBoxLayout()
+            self.assist_tab_bar.setContentsMargins(16, 16, 16, 0)
+            self.assist_tab_bar.setSpacing(12)
+            self.assist_tabs = []
+            # 目前只加一个tab，后续可扩展
+            self.btn_shellgen = QPushButton("反弹shell生成")
+            self.btn_shellgen.setCheckable(True)
+            self.btn_shellgen.setChecked(True)
+            self.btn_shellgen.clicked.connect(lambda: self.switch_assist_tab('shellgen'))
+            self.assist_tab_bar.addWidget(self.btn_shellgen)
+            self.assist_tabs.append(self.btn_shellgen)
+            self.assist_tab_bar.addStretch()
+            assist_layout.addLayout(self.assist_tab_bar)
+            # 下方内容区
+            self.assist_content = QStackedWidget()
+            # 反弹shell生成页面
+            self.shellgen_webview = QWebEngineView()
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            shellgen_path = os.path.join(current_dir, "project", "reverse-shell", "index.html")
+            if os.path.exists(shellgen_path):
+                url = QUrl.fromLocalFile(shellgen_path)
+                self.shellgen_webview.setUrl(url)
+            else:
+                self.shellgen_webview.setUrl(QUrl("https://btsrk.me/"))
+            self.assist_content.addWidget(self.shellgen_webview)
+            assist_layout.addWidget(self.assist_content)
+            self.right_layout.addWidget(assist_container)
+            # 便于后续扩展tab
+            self.current_assist_tab = 'shellgen'
+        else:
+            self.btn_safe_tools.setChecked(False)
+            self.btn_code_tools.setChecked(False)
+            self.btn_assist_tools.setChecked(False)
 
     def refresh_outline_and_tools(self):
         """根据所有工具的分类字段动态生成树形大纲，并显示所有工具"""
@@ -2314,6 +2364,16 @@ class MainWindow(QMainWindow):
         self.config.remove_from_favorites(tool_name)
         self.update_status_stats()
         self.status_label.setText(f"已从收藏中移除 '{tool_name}'")
+
+    def switch_assist_tab(self, tab_name):
+        """切换辅助工具tab"""
+        # 目前只有一个tab，后续可扩展
+        for btn in self.assist_tabs:
+            btn.setChecked(False)
+        if tab_name == 'shellgen':
+            self.btn_shellgen.setChecked(True)
+            self.assist_content.setCurrentIndex(0)
+            self.current_assist_tab = 'shellgen'
 
 if __name__ == "__main__":
     logging.info("程序开始运行...")

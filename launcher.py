@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QAbstractItemView, QStyleFactory,
     QDialogButtonBox, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QUrl, QTimer, QThread, pyqtSignal, QSize, QRect, QPoint, QSettings, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QUrl, QTimer, QThread, pyqtSignal, QSize, QRect, QPoint, QSettings, QPropertyAnimation, QEasingCurve, QObject, pyqtSlot
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QAction, QKeySequence, QDesktopServices, QPainter, QBrush, QPen
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
@@ -538,15 +538,322 @@ class AddToolDialog(QDialog):
             "args": self.args_edit.text().strip()  # 新增启动参数字段
         }
 
+class SearchWorker(QObject):
+    """在工作线程中执行搜索"""
+    resultsReady = pyqtSignal(list)
+
+    @pyqtSlot(list, str)
+    def search(self, tools, text):
+        """搜索工具"""
+        if not text:
+            self.resultsReady.emit(tools)
+            return
+
+        text = text.lower()
+        results = []
+        for tool_data in tools:
+            if (text in tool_data.get('name', '').lower() or
+                text in tool_data.get('description', '').lower() or
+                text in tool_data.get('category', '').lower()):
+                results.append(tool_data)
+        
+        self.resultsReady.emit(results)
+
+class IconLoaderWorker(QObject):
+    """在工作线程中懒加载图标"""
+    # 信号发出: 行号, 工具路径 (用于验证), QIcon对象
+    iconReady = pyqtSignal(int, str, QIcon)
+
+    @pyqtSlot(int, str, str)
+    def load_icon(self, row, tool_path, icon_path):
+        """加载图标文件"""
+        if icon_path and os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            if not icon.isNull():
+                self.iconReady.emit(row, tool_path, icon)
+
+class ToolLauncherWorker(QObject):
+    """在工作线程中启动工具"""
+    toolLaunched = pyqtSignal(str, bool, str)  # 工具名, 成功状态, 错误信息
+    
+    @pyqtSlot(object)
+    def launch_tool(self, tool):
+        """启动工具"""
+        try:
+            if tool.tool_type == "url":
+                QDesktopServices.openUrl(QUrl(tool.path))
+                self.toolLaunched.emit(tool.name, True, "")
+            elif tool.tool_type == "folder":
+                QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
+                self.toolLaunched.emit(tool.name, True, "")
+            else:
+                # 文件类工具启动
+                tool_dir = os.path.dirname(tool.path)
+                cmd = []
+                
+                if tool.tool_type in ["java8_gui", "java11_gui"]:
+                    cmd = ["java", "-jar", tool.path]
+                elif tool.tool_type in ["java8", "java11"]:
+                    cmd = ["java"]
+                elif tool.tool_type == "python":
+                    cmd = ["python", tool.path]
+                elif tool.tool_type == "powershell":
+                    cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
+                elif tool.tool_type == "batch":
+                    cmd = [tool.path]
+                else:  # 默认为 exe
+                    cmd = [tool.path]
+                
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                
+                process = subprocess.Popen(cmd, cwd=tool_dir)
+                self.toolLaunched.emit(tool.name, True, str(process.pid))
+                
+        except Exception as e:
+            self.toolLaunched.emit(tool.name, False, str(e))
+
+class ConfigSaverWorker(QObject):
+    """在工作线程中保存配置"""
+    configSaved = pyqtSignal(bool, str)  # 成功状态, 错误信息
+    
+    @pyqtSlot(dict)
+    def save_config(self, config_data):
+        """保存配置"""
+        try:
+            # 保存到QSettings
+            settings = QSettings("AppLauncher", "AppLauncher")
+            for key, value in config_data.items():
+                settings.setValue(key, value)
+            settings.sync()
+            
+            # 保存到JSON文件
+            config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, ensure_ascii=False, indent=2)
+            
+            self.configSaved.emit(True, "")
+        except Exception as e:
+            self.configSaved.emit(False, str(e))
+
+class ProcessMonitorWorker(QObject):
+    """监控已启动的进程"""
+    processStatusChanged = pyqtSignal(str, str, bool)  # 工具名, 进程ID, 是否运行
+    
+    def __init__(self):
+        super().__init__()
+        self.monitored_processes = {}  # {tool_name: pid}
+        self.running = True
+    
+    @pyqtSlot()
+    def start_monitoring(self):
+        """开始监控进程"""
+        while self.running:
+            try:
+                for tool_name, pid in list(self.monitored_processes.items()):
+                    try:
+                        # 检查进程是否还在运行
+                        process = subprocess.run(['tasklist', '/FI', f'PID eq {pid}'], 
+                                               capture_output=True, text=True)
+                        is_running = str(pid) in process.stdout
+                        self.processStatusChanged.emit(tool_name, str(pid), is_running)
+                        
+                        if not is_running:
+                            # 进程已结束，从监控列表中移除
+                            del self.monitored_processes[tool_name]
+                    except:
+                        # 进程可能已经结束
+                        del self.monitored_processes[tool_name]
+                
+                time.sleep(2)  # 每2秒检查一次
+            except:
+                break
+    
+    def add_process(self, tool_name, pid):
+        """添加进程到监控列表"""
+        self.monitored_processes[tool_name] = pid
+    
+    def stop_monitoring(self):
+        """停止监控"""
+        self.running = False
+
+class CacheManager:
+    """缓存管理器"""
+    def __init__(self, max_size=100):
+        self.cache = {}
+        self.max_size = max_size
+        self.access_order = []
+    
+    def get(self, key):
+        """获取缓存项"""
+        if key in self.cache:
+            # 更新访问顺序
+            if key in self.access_order:
+                self.access_order.remove(key)
+            self.access_order.append(key)
+            return self.cache[key]
+        return None
+    
+    def set(self, key, value):
+        """设置缓存项"""
+        if key in self.cache:
+            # 更新现有项
+            self.cache[key] = value
+            if key in self.access_order:
+                self.access_order.remove(key)
+            self.access_order.append(key)
+        else:
+            # 添加新项
+            if len(self.cache) >= self.max_size:
+                # 移除最久未访问的项
+                oldest_key = self.access_order.pop(0)
+                del self.cache[oldest_key]
+            
+            self.cache[key] = value
+            self.access_order.append(key)
+    
+    def clear(self):
+        """清空缓存"""
+        self.cache.clear()
+        self.access_order.clear()
+
 class MainWindow(QMainWindow):
     """主窗口"""
+    # 为工作线程添加信号
+    startSearch = pyqtSignal(list, str)
+    startIconLoad = pyqtSignal(int, str, str)
+    startToolLaunch = pyqtSignal(object)
+    startConfigSave = pyqtSignal(dict)
+
     def __init__(self):
         logging.info("初始化主窗口...")
         super().__init__()
         self.config = Config()
+        self.cache_manager = CacheManager()
+        self.init_workers()
         self.init_ui()
         self.load_data()
         logging.info("主窗口初始化完成")
+
+    def init_workers(self):
+        """初始化后台工作线程"""
+        # --- 搜索线程 ---
+        self.search_thread = QThread()
+        self.search_worker = SearchWorker()
+        self.search_worker.moveToThread(self.search_thread)
+        self.startSearch.connect(self.search_worker.search)
+        self.search_worker.resultsReady.connect(self.handle_search_results)
+        self.search_thread.start()
+        
+        # --- 图标加载线程 ---
+        self.icon_loader_thread = QThread()
+        self.icon_loader_worker = IconLoaderWorker()
+        self.icon_loader_worker.moveToThread(self.icon_loader_thread)
+        self.startIconLoad.connect(self.icon_loader_worker.load_icon)
+        self.icon_loader_worker.iconReady.connect(self.set_tool_icon)
+        self.icon_loader_thread.start()
+        
+        # --- 工具启动线程 ---
+        self.tool_launcher_thread = QThread()
+        self.tool_launcher_worker = ToolLauncherWorker()
+        self.tool_launcher_worker.moveToThread(self.tool_launcher_thread)
+        self.startToolLaunch.connect(self.tool_launcher_worker.launch_tool)
+        self.tool_launcher_worker.toolLaunched.connect(self.handle_tool_launched)
+        self.tool_launcher_thread.start()
+        
+        # --- 配置保存线程 ---
+        self.config_saver_thread = QThread()
+        self.config_saver_worker = ConfigSaverWorker()
+        self.config_saver_worker.moveToThread(self.config_saver_thread)
+        self.startConfigSave.connect(self.config_saver_worker.save_config)
+        self.config_saver_worker.configSaved.connect(self.handle_config_saved)
+        self.config_saver_thread.start()
+        
+        # --- 进程监控线程 ---
+        self.process_monitor_thread = QThread()
+        self.process_monitor_worker = ProcessMonitorWorker()
+        self.process_monitor_worker.moveToThread(self.process_monitor_thread)
+        self.process_monitor_worker.processStatusChanged.connect(self.handle_process_status)
+        self.process_monitor_thread.started.connect(self.process_monitor_worker.start_monitoring)
+        self.process_monitor_thread.start()
+        
+        # --- 搜索防抖计时器 ---
+        self.search_timer = QTimer(self)
+        self.search_timer.setSingleShot(True)
+        self.search_timer.setInterval(300) # 300ms延迟
+        self.search_timer.timeout.connect(self.trigger_search)
+        
+        # --- 配置保存防抖计时器 ---
+        self.config_save_timer = QTimer(self)
+        self.config_save_timer.setSingleShot(True)
+        self.config_save_timer.setInterval(500) # 500ms延迟
+        self.config_save_timer.timeout.connect(self.trigger_config_save)
+        
+        # --- 内存优化定时器 ---
+        self.memory_optimize_timer = QTimer(self)
+        self.memory_optimize_timer.setInterval(30000) # 每30秒优化一次内存
+        self.memory_optimize_timer.timeout.connect(self.optimize_memory)
+        self.memory_optimize_timer.start()
+        
+        logging.info("后台工作线程初始化完成")
+    
+    def handle_tool_launched(self, tool_name, success, result):
+        """处理工具启动结果"""
+        if success:
+            if result.isdigit():  # 返回的是进程ID
+                self.process_monitor_worker.add_process(tool_name, int(result))
+            self.status_label.setText(f"已启动: {tool_name}")
+            # 更新启动统计
+            self.update_tool_stats(tool_name)
+        else:
+            QMessageBox.critical(self, "启动失败", f"启动 {tool_name} 失败: {result}")
+            self.status_label.setText(f"启动失败: {tool_name}")
+    
+    def handle_config_saved(self, success, error_msg):
+        """处理配置保存结果"""
+        if not success:
+            logging.error(f"配置保存失败: {error_msg}")
+            QMessageBox.warning(self, "配置保存失败", f"配置保存失败: {error_msg}")
+    
+    def handle_process_status(self, tool_name, pid, is_running):
+        """处理进程状态变化"""
+        if not is_running:
+            logging.info(f"进程已结束: {tool_name} (PID: {pid})")
+    
+    def update_tool_stats(self, tool_name):
+        """更新工具启动统计"""
+        for tool_dict in self.config.tools:
+            if tool_dict.get('name') == tool_name:
+                tool_dict['launch_count'] = tool_dict.get('launch_count', 0) + 1
+                tool_dict['last_launch'] = datetime.now().isoformat()
+                break
+        
+        # 添加到最近使用列表
+        self.config.add_to_recent(tool_name)
+        
+        # 触发配置保存
+        self.schedule_config_save()
+        
+        # 更新UI
+        self.update_status_stats()
+    
+    def schedule_config_save(self):
+        """调度配置保存（防抖）"""
+        self.config_save_timer.start()
+    
+    def trigger_config_save(self):
+        """触发配置保存"""
+        config_data = {
+            "categories": self.config.categories,
+            "tools": self.config.tools,
+            "theme": self.config.theme,
+            "view_mode": self.config.view_mode,
+            "recent_tools": self.config.recent_tools,
+            "show_status_bar": self.config.show_status_bar,
+            "auto_refresh": self.config.auto_refresh,
+            "search_history": self.config.search_history
+        }
+        self.startConfigSave.emit(config_data)
     
     def init_ui(self):
         """初始化界面（重构为左侧固定导航栏）"""
@@ -654,7 +961,7 @@ class MainWindow(QMainWindow):
             # 搜索框
             self.search_input = QLineEdit()
             self.search_input.setPlaceholderText("搜索工具...")
-            self.search_input.textChanged.connect(self.search_tools)
+            self.search_input.textChanged.connect(self.on_search_text_changed)
             self.right_layout.insertWidget(0, self.search_input)
             # 刷新树形大纲和工具列表
             self.refresh_outline_and_tools()
@@ -725,6 +1032,31 @@ class MainWindow(QMainWindow):
             self.btn_code_tools.setChecked(False)
             self.btn_assist_tools.setChecked(False)
 
+    def on_search_text_changed(self, text):
+        """当搜索框文本变化时，启动/重置防抖计时器"""
+        self.search_timer.start()
+
+    def trigger_search(self):
+        """计时器结束后，触发后台搜索"""
+        search_text = self.search_input.text().strip()
+        
+        # 如果搜索框为空，则显示当前分类的工具，而不是所有工具
+        if not search_text:
+            current_item = self.outline_tree.currentItem()
+            if current_item:
+                self.on_outline_clicked(current_item)
+            else:
+                self.update_tools_list_for_outline() # 如果没有选中分类，显示所有
+            return
+
+        all_tools_data = self.config.tools
+        self.startSearch.emit(all_tools_data, search_text)
+
+    def handle_search_results(self, results):
+        """用后台线程的搜索结果更新UI"""
+        tools_to_show = [Tool.from_dict(r) for r in results]
+        self.show_tools_list(tools_to_show)
+
     def refresh_outline_and_tools(self):
         """根据所有工具的分类字段动态生成树形大纲（支持多级），并显示所有工具"""
         self.outline_tree.clear()
@@ -785,28 +1117,50 @@ class MainWindow(QMainWindow):
     def show_tools_list(self, tools):
         self.tools_list.clear()
         self.tools_list.setIconSize(QSize(40, 40))  # 图标更大
-        for tool in tools:
+        
+        # 使用缓存优化性能
+        cache_key = f"tools_list_{len(tools)}_{hash(str(tools))}"
+        cached_data = self.cache_manager.get(cache_key)
+        
+        for i, tool in enumerate(tools):
             item = QListWidgetItem()
-            # 图标优先级：自定义icon_path > 类型emoji
-            if tool.icon_path and os.path.exists(tool.icon_path):
-                icon = QIcon(tool.icon_path)
-                item.setIcon(icon)
-            else:
-                emoji = self._get_tool_icon(tool)
-                item.setText(f"{emoji}  {tool.name}")
-            # 始终显示名称，名称加粗，区域更大
-            if not item.text():
-                item.setText(tool.name)
+            
+            # 存储工具对象和路径，用于后续操作和验证
+            item.setData(Qt.ItemDataRole.UserRole, tool)
+            
+            # 设置通用样式和提示
             font = QFont("Microsoft YaHei", 12, QFont.Weight.Bold)
             item.setFont(font)
-            item.setSizeHint(QSize(0, 54))  # 区域更高
+            item.setSizeHint(QSize(0, 54))
             desc = tool.description or ""
             tooltip = f"<b>{tool.name}</b><br>类型: {tool.tool_type}<br>路径: {tool.path}"
             if desc:
                 tooltip += f"<br>描述: {desc}"
             item.setToolTip(tooltip)
-            item.setData(Qt.ItemDataRole.UserRole, tool)
+            
+            # 懒加载图标（使用缓存优化）
+            if tool.icon_path:
+                item.setText(tool.name)
+                # 检查缓存中是否有图标
+                icon_cache_key = f"icon_{hash(tool.icon_path)}"
+                cached_icon = self.cache_manager.get(icon_cache_key)
+                
+                if cached_icon:
+                    item.setIcon(cached_icon)
+                else:
+                    # 使用一个标准图标作为占位符
+                    placeholder_icon = self.style().standardIcon(QApplication.style().StandardPixmap.SP_DriveNetIcon)
+                    item.setIcon(placeholder_icon)
+                    # 触发后台加载
+                    self.startIconLoad.emit(i, tool.path, tool.icon_path)
+            else:
+                # 如果没有自定义图标，使用emoji
+                emoji = self._get_tool_icon(tool)
+                item.setText(f"{emoji}  {tool.name}")
+                item.setIcon(QIcon()) # 明确设置空图标以保证对齐
+
             self.tools_list.addItem(item)
+            
         # 美化列表整体样式
         self.tools_list.setStyleSheet('''
             QListWidget {
@@ -834,6 +1188,40 @@ class MainWindow(QMainWindow):
             }
         ''')
     
+    def set_tool_icon(self, row, tool_path, icon):
+        """Slot to set a lazy-loaded icon on a list item."""
+        if row >= self.tools_list.count():
+            return  # 行越界，列表可能已更新
+            
+        item = self.tools_list.item(row)
+        if item:
+            # 验证item是否仍然是当初请求图标的那个工具
+            item_tool = item.data(Qt.ItemDataRole.UserRole)
+            if item_tool and item_tool.path == tool_path:
+                item.setIcon(icon)
+                # 缓存图标以提高性能
+                if item_tool.icon_path:
+                    icon_cache_key = f"icon_{hash(item_tool.icon_path)}"
+                    self.cache_manager.set(icon_cache_key, icon)
+    
+    def optimize_memory(self):
+        """优化内存使用"""
+        # 清理缓存中的旧条目
+        if len(self.cache_manager.cache) > self.cache_manager.max_size * 0.8:
+            # 当缓存使用超过80%时，清理最旧的20%条目
+            items_to_remove = int(self.cache_manager.max_size * 0.2)
+            for _ in range(items_to_remove):
+                if self.cache_manager.access_order:
+                    oldest_key = self.cache_manager.access_order.pop(0)
+                    if oldest_key in self.cache_manager.cache:
+                        del self.cache_manager.cache[oldest_key]
+        
+        # 强制垃圾回收
+        import gc
+        gc.collect()
+        
+        logging.info("内存优化完成")
+
     def create_menu(self):
         """创建菜单栏"""
         menubar = self.menuBar()
@@ -1286,70 +1674,10 @@ class MainWindow(QMainWindow):
             self.launch_tool(item)
     
     def _launch_and_update_stats(self, tool_to_launch):
-        """统一处理工具启动、统计更新和配置保存"""
-        try:
-            # --- 1. 执行工具 ---
-            tool = tool_to_launch  # 别名，方便复制代码
-            if tool.tool_type == "url":
-                QDesktopServices.openUrl(QUrl(tool.path))
-            elif tool.tool_type == "folder":
-                QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
-            else:
-                # For all file-based tools, set the working directory
-                tool_dir = os.path.dirname(tool.path)
-
-                if tool.tool_type in ["java8_gui", "java11_gui"]:
-                    java_cmd = "java"
-                    cmd = [java_cmd, "-jar", tool.path]
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-                elif tool.tool_type in ["java8", "java11"]:
-                    java_cmd = "java"
-                    cmd = [java_cmd] # Let user control all args
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-                elif tool.tool_type == "python":
-                    cmd = ["python", tool.path]
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-                elif tool.tool_type == "powershell":
-                    cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-                elif tool.tool_type == "batch":
-                    cmd = [tool.path]
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-                else:  # 默认为 exe
-                    cmd = [tool.path]
-                    if tool.args:
-                        cmd.extend(tool.args.split())
-                    subprocess.Popen(cmd, cwd=tool_dir)
-            
-            # --- 2. 更新统计数据（直接在原始字典上操作） ---
-            for tool_dict in self.config.tools:
-                if tool_dict.get('name') == tool.name and tool_dict.get('path') == tool.path:
-                    tool_dict['launch_count'] = tool_dict.get('launch_count', 0) + 1
-                    tool_dict['last_launch'] = datetime.now().isoformat()
-                    break # 找到后即中断循环
-            
-            # --- 3. 更新最近使用列表并保存 ---
-            self.config.add_to_recent(tool.name) # add_to_recent内部已包含save_config
-            
-            # --- 4. 更新UI ---
-            self.update_status_stats()
-            self.status_label.setText(f"已启动: {tool.name}")
-            return True
-
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
-            self.status_label.setText(f"启动失败: {tool.name}")
-            return False
+        """统一处理工具启动、统计更新和配置保存（已废弃，使用新的后台启动机制）"""
+        # 使用新的后台启动机制
+        self.startToolLaunch.emit(tool_to_launch)
+        return True
 
     def launch_tool(self, item):
         """启动工具"""
@@ -1361,7 +1689,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "提示", "这是一个空分类的占位符，请添加实际工具到此分类。")
             return
             
-        self._launch_and_update_stats(tool)
+        # 使用新的后台启动机制
+        self.startToolLaunch.emit(tool)
     
     def edit_tool(self, item):
         """编辑工具"""
@@ -2723,8 +3052,8 @@ AppLauncher 工具统计报告
     
     def launch_tool_from_recent(self, tool, dialog):
         """从最近工具列表启动工具"""
-        if self._launch_and_update_stats(tool):
-            dialog.accept() # 启动成功后关闭对话框
+        self.startToolLaunch.emit(tool)
+        dialog.accept() # 启动成功后关闭对话框
     
     def clear_recent_history(self, dialog):
         """清空最近使用历史（美化确认弹窗按钮）"""
@@ -2787,30 +3116,8 @@ AppLauncher 工具统计报告
             self.update_tools_list()
 
     def search_tools(self, text):
-        """搜索工具"""
-        self.tools_list.clear()
-        
-        text = text.strip()
-        if not text:
-            # 如果没有搜索文本，显示当前选中分类的工具
-            current_item = self.outline_tree.currentItem()
-            if current_item:
-                self.on_outline_clicked(current_item)
-            else:
-                # 如果没有选中项，显示所有工具
-                self.update_tools_list_for_outline()
-            return
-        
-        # 搜索所有工具
-        for tool_data in self.config.tools:
-            tool = Tool.from_dict(tool_data)
-            # 搜索范围更广
-            if (text.lower() in tool.name.lower() or
-                text.lower() in tool.description.lower() or
-                text.lower() in tool.category.lower()):
-                
-                # 创建搜索结果的工具项
-                self.show_tools_list([tool]) # 复用显示逻辑，但只显示这一个
+        """搜索工具(此方法已废弃,逻辑由多线程工作者替代)"""
+        pass
     
     def _create_search_tool_item(self, tool):
         """创建搜索结果的工具项"""
@@ -2820,7 +3127,7 @@ AppLauncher 工具统计报告
 
     def launch_tool_card(self, tool):
         """启动工具卡片"""
-        self._launch_and_update_stats(tool)
+        self.startToolLaunch.emit(tool)
     
     def show_context_menu(self, position):
         """显示工具右键菜单，优化：仅右键空白处显示新增工具"""
@@ -2963,6 +3270,41 @@ AppLauncher 工具统计报告
             self.btn_java_encode.setChecked(True)
             self.assist_content.setCurrentIndex(1)
             self.current_assist_tab = 'java_encode'
+
+    def closeEvent(self, event):
+        """处理窗口关闭事件，安全地终止工作线程"""
+        logging.info("正在关闭应用程序，请稍候...")
+        
+        # 停止所有定时器
+        self.search_timer.stop()
+        self.config_save_timer.stop()
+        self.memory_optimize_timer.stop()
+        
+        # 停止所有工作线程
+        self.search_thread.quit()
+        self.icon_loader_thread.quit()
+        self.tool_launcher_thread.quit()
+        self.config_saver_thread.quit()
+        self.process_monitor_worker.stop_monitoring()
+        self.process_monitor_thread.quit()
+        
+        # 等待线程安全退出
+        threads_to_wait = [
+            (self.search_thread, "搜索线程"),
+            (self.icon_loader_thread, "图标加载线程"),
+            (self.tool_launcher_thread, "工具启动线程"),
+            (self.config_saver_thread, "配置保存线程"),
+            (self.process_monitor_thread, "进程监控线程")
+        ]
+        
+        for thread, name in threads_to_wait:
+            if not thread.wait(1000):  # 等待1秒
+                logging.warning(f"{name}未能及时停止。")
+        
+        # 清空缓存
+        self.cache_manager.clear()
+        
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     logging.info("程序开始运行...")

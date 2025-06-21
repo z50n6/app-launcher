@@ -25,6 +25,7 @@ from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QAction, QKeySe
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWebChannel import QWebChannel
+import re
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
@@ -149,6 +150,71 @@ class Config:
         self.save_config()
 
 logging.info("定义配置类完成...")
+
+class PipInstallerWorker(QObject):
+    """在工作线程中安装Python包"""
+    installationStarted = pyqtSignal(str)  # tool_name
+    installationProgress = pyqtSignal(str, str)  # tool_name, message
+    installationFinished = pyqtSignal(str, bool, str, object)  # tool_name, success, error_msg, tool_object
+
+    @pyqtSlot(object, str)
+    def install(self, tool, target):
+        """
+        安装依赖
+        :param tool: 工具对象
+        :param target: 'requirements' 或模块名
+        """
+        self.installationStarted.emit(tool.name)
+        tool_dir = os.path.dirname(tool.path)
+        
+        try:
+            if target == 'requirements':
+                req_file = os.path.join(tool_dir, 'requirements.txt')
+                cmd = ["python", "-m", "pip", "install", "--upgrade", "pip"]
+                
+                # 首先升级pip
+                self.installationProgress.emit(tool.name, "正在检查并升级pip...")
+                upgrade_process = subprocess.run(cmd, cwd=tool_dir, capture_output=True, text=True, encoding='utf-8', errors='replace')
+                if upgrade_process.returncode == 0:
+                    self.installationProgress.emit(tool.name, "pip已是最新版本或升级成功。")
+                else:
+                    self.installationProgress.emit(tool.name, f"pip升级失败，继续尝试安装依赖...")
+
+                # 然后安装requirements
+                cmd = ["python", "-m", "pip", "install", "-r", req_file]
+                self.installationProgress.emit(tool.name, f"正在从 requirements.txt 安装依赖...")
+            else:
+                cmd = ["python", "-m", "pip", "install", target]
+                self.installationProgress.emit(tool.name, f"正在安装模块: {target}...")
+
+            process = subprocess.Popen(
+                cmd,
+                cwd=tool_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                errors='replace'
+            )
+
+            for line in iter(process.stdout.readline, ''):
+                self.installationProgress.emit(tool.name, line.strip())
+            
+            process.stdout.close()
+            return_code = process.wait()
+
+            if return_code == 0:
+                self.installationProgress.emit(tool.name, "依赖安装成功!")
+                self.installationFinished.emit(tool.name, True, "", tool)
+            else:
+                error_msg = f"Pip 安装失败，返回码: {return_code}"
+                self.installationProgress.emit(tool.name, error_msg)
+                self.installationFinished.emit(tool.name, False, error_msg, tool)
+
+        except Exception as e:
+            error_msg = f"安装过程中发生错误: {e}"
+            self.installationProgress.emit(tool.name, error_msg)
+            self.installationFinished.emit(tool.name, False, error_msg, tool)
 
 class Tool:
     """工具类"""
@@ -573,14 +639,52 @@ class IconLoaderWorker(QObject):
             if not icon.isNull():
                 self.iconReady.emit(row, tool_path, icon)
 
+
 class ToolLauncherWorker(QObject):
     """在工作线程中启动工具"""
     toolLaunched = pyqtSignal(str, bool, str)  # 工具名, 成功状态, 错误信息
+    installationRequired = pyqtSignal(object, str) # tool, target ('requirements' or module_name)
     
-    @pyqtSlot(object)
-    def launch_tool(self, tool):
-        """启动工具"""
+    @pyqtSlot(object, bool)
+    def launch_tool(self, tool, dependency_check=True):
+        """
+        启动工具
+        :param tool: 工具对象
+        :param dependency_check: 是否进行依赖检查
+        """
         try:
+            if tool.tool_type == "python" and dependency_check:
+                tool_dir = os.path.dirname(tool.path)
+                req_file = os.path.join(tool_dir, 'requirements.txt')
+                
+                if os.path.exists(req_file):
+                    self.installationRequired.emit(tool, 'requirements')
+                    return
+
+                cmd = ["python", tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                
+                # 尝试运行一次来检查模块错误
+                process = subprocess.run(cmd, cwd=tool_dir, capture_output=True, text=True, encoding='utf-8', errors='replace')
+                
+                if process.returncode != 0:
+                    stderr = process.stderr
+                    if "ModuleNotFoundError" in stderr:
+                        match = re.search(r"ModuleNotFoundError: No module named '([\w\.]+)'", stderr)
+                        if match:
+                            module_name = match.group(1)
+                            self.installationRequired.emit(tool, module_name)
+                            return
+                    # 在测试运行时发生了其他错误
+                    self.toolLaunched.emit(tool.name, False, stderr or process.stdout)
+                    return
+
+            # 如果我们在这里，意味着：
+            # 1. 它不是一个python工具
+            # 2. 它是一个python工具，并且dependency_check为False（已经安装）
+            # 3. 它是一个python工具，dependency_check为True，但没有发现缺少依赖项
+            
             if tool.tool_type == "url":
                 QDesktopServices.openUrl(QUrl(tool.path))
                 self.toolLaunched.emit(tool.name, True, "")
@@ -588,7 +692,6 @@ class ToolLauncherWorker(QObject):
                 QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
                 self.toolLaunched.emit(tool.name, True, "")
             else:
-                # 文件类工具启动
                 tool_dir = os.path.dirname(tool.path)
                 cmd = []
                 
@@ -732,7 +835,8 @@ class MainWindow(QMainWindow):
     # 为工作线程添加信号
     startSearch = pyqtSignal(list, str)
     startIconLoad = pyqtSignal(int, str, str)
-    startToolLaunch = pyqtSignal(object)
+    startToolLaunch = pyqtSignal(object, bool)
+    startPipInstall = pyqtSignal(object, str)
     startConfigSave = pyqtSignal(dict)
 
     def __init__(self):
@@ -769,7 +873,18 @@ class MainWindow(QMainWindow):
         self.tool_launcher_worker.moveToThread(self.tool_launcher_thread)
         self.startToolLaunch.connect(self.tool_launcher_worker.launch_tool)
         self.tool_launcher_worker.toolLaunched.connect(self.handle_tool_launched)
+        self.tool_launcher_worker.installationRequired.connect(self.handle_installation_required)
         self.tool_launcher_thread.start()
+        
+        # --- Pip安装线程 ---
+        self.pip_installer_thread = QThread()
+        self.pip_installer_worker = PipInstallerWorker()
+        self.pip_installer_worker.moveToThread(self.pip_installer_thread)
+        self.startPipInstall.connect(self.pip_installer_worker.install)
+        self.pip_installer_worker.installationStarted.connect(self.handle_installation_started)
+        self.pip_installer_worker.installationProgress.connect(self.handle_installation_progress)
+        self.pip_installer_worker.installationFinished.connect(self.handle_installation_finished)
+        self.pip_installer_thread.start()
         
         # --- 配置保存线程 ---
         self.config_saver_thread = QThread()
@@ -812,12 +927,12 @@ class MainWindow(QMainWindow):
         if success:
             if result.isdigit():  # 返回的是进程ID
                 self.process_monitor_worker.add_process(tool_name, int(result))
-            self.status_label.setText(f"已启动: {tool_name}")
+            self.status_label.setText(f"✅ 已启动: {tool_name}")
             # 更新启动统计
             self.update_tool_stats(tool_name)
         else:
             QMessageBox.critical(self, "启动失败", f"启动 {tool_name} 失败: {result}")
-            self.status_label.setText(f"启动失败: {tool_name}")
+            self.status_label.setText(f"❌ 启动失败: {tool_name}")
     
     def handle_config_saved(self, success, error_msg):
         """处理配置保存结果"""
@@ -1521,7 +1636,13 @@ class MainWindow(QMainWindow):
         
         # 状态信息标签
         self.status_label = QLabel("就绪")
-        self.status_bar.addWidget(self.status_label)
+        self.status_bar.addWidget(self.status_label, 1) # 添加拉伸因子
+        
+        # 安装进度条
+        self.install_progress_bar = QProgressBar()
+        self.install_progress_bar.setVisible(False)
+        self.install_progress_bar.setFixedWidth(200)
+        self.status_bar.addPermanentWidget(self.install_progress_bar)
         
         # 工具统计信息
         self.stats_label = QLabel("")
@@ -1707,7 +1828,7 @@ class MainWindow(QMainWindow):
             return
             
         # 使用新的后台启动机制
-        self.startToolLaunch.emit(tool)
+        self.startToolLaunch.emit(tool, True)
     
     def edit_tool(self, item):
         """编辑工具"""
@@ -1790,20 +1911,58 @@ class MainWindow(QMainWindow):
         tool = item.data(Qt.ItemDataRole.UserRole)
         if not tool:
             return
-            
-        path = os.path.dirname(tool.path)
-        if os.path.exists(path):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+        
+        path_to_check = tool.path
+        
+        # 如果是文件，获取其所在目录；如果是目录，则使用其本身
+        if tool.tool_type == 'folder':
+             folder_to_open = path_to_check
+        else:
+             folder_to_open = os.path.dirname(path_to_check)
+
+        if os.path.exists(folder_to_open) and os.path.isdir(folder_to_open):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(folder_to_open))
+        else:
+            QMessageBox.warning(self, "路径不存在", f"无法打开文件夹，路径不是一个有效的文件夹:\n{folder_to_open}")
     
     def open_tool_cmd(self, item):
-        """打开工具命令行"""
+        """打开工具命令行, 优先使用Windows Terminal, 其次PowerShell, 最后cmd"""
         tool = item.data(Qt.ItemDataRole.UserRole)
         if not tool:
             return
             
-        path = os.path.dirname(tool.path)
-        if os.path.exists(path):
-            subprocess.Popen(["cmd", "/k", f"cd /d {path}"])
+        if tool.tool_type == "folder":
+            path = tool.path
+        else:
+            path = os.path.dirname(tool.path)
+            
+        if not os.path.isdir(path):
+            QMessageBox.warning(self, "路径无效", f"无法打开命令行，路径不是一个有效的文件夹:\n{path}")
+            return
+
+        # Define creation flags for a new console window
+        CREATE_NEW_CONSOLE = 0x00000010
+
+        # Commands to try, in order of preference.
+        # The first element is the command list, the second is a dict of extra Popen args.
+        terminal_options = [
+            {"cmd": ["wt.exe", "-d", path], "args": {}, "name": "Windows Terminal"},
+            {"cmd": ["pwsh.exe", "-NoExit"], "args": {"cwd": path}, "name": "PowerShell Core"},
+            {"cmd": ["powershell.exe", "-NoExit"], "args": {"cwd": path}, "name": "Windows PowerShell"},
+            {"cmd": ["cmd.exe"], "args": {"cwd": path}, "name": "Command Prompt"}
+        ]
+
+        for option in terminal_options:
+            try:
+                subprocess.Popen(option["cmd"], creationflags=CREATE_NEW_CONSOLE, **option["args"])
+                logging.info(f"成功使用 {option['name']} 打开路径: {path}")
+                return
+            except FileNotFoundError:
+                logging.info(f"未找到 {option['name']}，尝试下一个...")
+            except Exception as e:
+                logging.warning(f"启动 {option['name']} 失败: {e}，尝试下一个...")
+
+        QMessageBox.critical(self, "错误", "无法打开任何终端。请检查您的系统配置。")
     
     def show_cyberchef(self):
         """显示CyberChef页面，兼容新版右侧内容区"""
@@ -3069,7 +3228,7 @@ AppLauncher 工具统计报告
     
     def launch_tool_from_recent(self, tool, dialog):
         """从最近工具列表启动工具"""
-        self.startToolLaunch.emit(tool)
+        self.startToolLaunch.emit(tool, True)
         dialog.accept() # 启动成功后关闭对话框
     
     def clear_recent_history(self, dialog):
@@ -3144,7 +3303,7 @@ AppLauncher 工具统计报告
 
     def launch_tool_card(self, tool):
         """启动工具卡片"""
-        self.startToolLaunch.emit(tool)
+        self.startToolLaunch.emit(tool, True)
     
     def show_context_menu(self, position):
         """显示工具右键菜单，优化：仅右键空白处显示新增工具"""
@@ -3158,8 +3317,8 @@ AppLauncher 工具统计报告
             edit_action = QAction("编辑", self)
             edit_action.triggered.connect(lambda: self.edit_tool(item))
             menu.addAction(edit_action)
-            open_folder_action = QAction("打开所有路径文件夹", self)
-            open_folder_action.triggered.connect(lambda: self.open_tool_folder(item, all_paths=True))
+            open_folder_action = QAction("打开所在文件夹", self)
+            open_folder_action.triggered.connect(lambda: self.open_tool_folder(item))
             menu.addAction(open_folder_action)
             open_cmd_action = QAction("打开命令行", self)
             open_cmd_action.triggered.connect(lambda: self.open_tool_cmd(item))
@@ -3311,6 +3470,7 @@ AppLauncher 工具统计报告
             (self.icon_loader_thread, "图标加载线程"),
             (self.tool_launcher_thread, "工具启动线程"),
             (self.config_saver_thread, "配置保存线程"),
+            (self.pip_installer_thread, "Pip安装线程"),
             (self.process_monitor_thread, "进程监控线程")
         ]
         
@@ -3322,6 +3482,32 @@ AppLauncher 工具统计报告
         self.cache_manager.clear()
         
         super().closeEvent(event)
+
+    def handle_installation_required(self, tool, target):
+        """处理Python依赖安装请求"""
+        self.startPipInstall.emit(tool, target)
+
+    def handle_installation_started(self, tool_name):
+        """处理安装开始事件"""
+        self.install_progress_bar.setVisible(True)
+        self.install_progress_bar.setRange(0, 0)  # 设置为不确定模式
+        self.status_label.setText(f"为 {tool_name} 开始安装依赖...")
+
+    def handle_installation_progress(self, tool_name, message):
+        """处理安装进度更新"""
+        self.status_label.setText(f"[{tool_name}] {message}")
+
+    def handle_installation_finished(self, tool_name, success, error_msg, tool):
+        """处理安装完成事件"""
+        self.install_progress_bar.setVisible(False)
+        self.install_progress_bar.setRange(0, 100) # 重置
+        if success:
+            self.status_label.setText(f"✅ {tool_name} 依赖安装成功，正在重新启动...")
+            # 重新启动，跳过依赖检查
+            self.startToolLaunch.emit(tool, False)
+        else:
+            self.status_label.setText(f"❌ {tool_name} 依赖安装失败: {error_msg}")
+            QMessageBox.critical(self, "安装失败", f"为 {tool_name} 安装依赖失败: \n{error_msg}")
 
 if __name__ == "__main__":
     logging.info("程序开始运行...")

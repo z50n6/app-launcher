@@ -11,88 +11,72 @@
 <body>
     <main class="container">
         <header class="app-header">
-            <h1 class="app-title">
-                <span class="emoji">⚡</span>
-                Java命令编码工具
-            </h1>
+            <!--
+            <h1 class="app-title"><span class="emoji">⚡</span> Java命令编码工具</h1>
             <p class="app-description">支持多种编码格式的命令转换和优化</p>
+            -->
+            <div class="payload-tip payload-tip-collapsed" id="payloadTip">
+                有时通过 Runtime.getRuntime().exec() 执行命令的有效载荷会失败。这在使用 Web shell、反序列化漏洞或其他途径时可能会发生。<br><br>
+                有时这是因为重定向和管道字符在启动进程的上下文中使用方式不合理。例如，在 shell 中执行 <code>ls &gt; dir_listing</code> 应该将当前目录的列表输出到名为 dir_listing 的文件中。但在 exec() 函数的上下文中，该命令会被解释为获取 <code>&gt;</code> 和 <code>dir_listing</code> 目录的列表。<br><br>
+                其他时候，包含空格的参数会被 StringTokenizer 类通过空格分割命令字符串的方式破坏。类似 <code>ls "My Directory"</code> 会被解释为 <code>ls</code> <code>'"My'</code> <code>'Directory"'</code>。<br><br>
+                借助 Base64 编码，下面的转换器可以帮助减少这些问题。它可以通过调用 Bash 或 PowerShell 使管道和重定向变得再次出色，并且还确保参数中不包含空格。
+                <button id="toggleTipBtn" class="toggle-tip-btn">展开</button>
+            </div>
         </header>
-
-        <section class="card-group">
-            <label class="input-title" for="inputCmd">
-                <span class="emoji">👉</span>输入命令
-            </label>
-            <div class="control-group">
-                <div class="custom-select" id="custom-cmdtype-select">
-                    <button type="button" id="cmdTypeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
-                        <span class="select-text">Bash</span>
-                        <span class="select-arrow">▼</span>
-                    </button>
-                    <ul id="cmdTypeSelectList" class="select-list" role="listbox" aria-label="选择命令类型">
-                        <li role="option" data-value="bash" aria-selected="true">Bash</li>
-                        <li role="option" data-value="sh" aria-selected="false">Sh</li>
-                        <li role="option" data-value="powershell" aria-selected="false">PowerShell</li>
-                        <li role="option" data-value="python" aria-selected="false">Python</li>
-                        <li role="option" data-value="perl" aria-selected="false">Perl</li>
-                        <li role="option" data-value="cmd" aria-selected="false">CMD</li>
-                    </ul>
+        <section class="form-section">
+            <div class="form-row">
+                <label class="input-title" for="inputCmd"><span class="emoji">👉</span>输入命令</label>
+                <div class="input-inline-group">
+                    <div class="custom-select" id="custom-cmdtype-select">
+                        <button type="button" id="cmdTypeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="select-text">Bash</span>
+                            <span class="select-arrow">▼</span>
+                        </button>
+                        <ul id="cmdTypeSelectList" class="select-list" role="listbox" aria-label="选择命令类型">
+                            <li role="option" data-value="bash" aria-selected="true">Bash</li>
+                            <li role="option" data-value="sh" aria-selected="false">Sh</li>
+                            <li role="option" data-value="powershell" aria-selected="false">PowerShell</li>
+                            <li role="option" data-value="python" aria-selected="false">Python</li>
+                            <li role="option" data-value="perl" aria-selected="false">Perl</li>
+                        </ul>
+                    </div>
+                    <textarea id="inputCmd" rows="4" placeholder="请输入要编码的命令，例如: whoami" aria-label="输入命令"></textarea>
                 </div>
             </div>
-            <textarea 
-                id="inputCmd" 
-                rows="3" 
-                placeholder="请输入要编码的命令，例如: whoami"
-                aria-label="输入命令"
-            ></textarea>
-        </section>
-
-        <section class="card-group">
-            <label class="input-title" for="outputCmd">
-                <span class="emoji">🚀</span>输出命令
-            </label>
-            <textarea 
-                id="outputCmd" 
-                rows="3" 
-                readonly 
-                aria-label="输出命令"
-            ></textarea>
-        </section>
-
-        <section class="card-group">
-            <label class="input-title" for="finalCmd">
-                <span class="emoji">🔐</span>编码结果
-            </label>
-            <div class="control-group">
-                <div class="custom-select" id="custom-encode-select">
-                    <button type="button" id="encodeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
-                        <span class="select-text">None</span>
-                        <span class="select-arrow">▼</span>
-                    </button>
-                    <ul id="encodeSelectList" class="select-list" role="listbox" aria-label="选择编码类型">
-                        <li role="option" data-value="none" aria-selected="true">None</li>
-                        <li role="option" data-value="url" aria-selected="false">URL编码</li>
-                        <li role="option" data-value="double_url" aria-selected="false">双URL编码</li>
-                        <li role="option" data-value="base64" aria-selected="false">Base64编码</li>
-                        <li role="option" data-value="hex" aria-selected="false">Hex编码</li>
-                    </ul>
-                </div>
-                <button type="button" id="encodeBtn" class="primary-btn">
-                    <span class="btn-icon">🔧</span>
-                    编码
-                </button>
+            <div class="form-row">
+                <label class="input-title" for="outputCmd"><span class="emoji">🚀</span>输出命令</label>
+                <textarea id="outputCmd" rows="3" readonly aria-label="输出命令"></textarea>
             </div>
-            <textarea 
-                id="finalCmd" 
-                rows="3" 
-                readonly 
-                aria-label="最终编码结果"
-            ></textarea>
-            <button type="button" id="copyBtn" class="copy-btn">
-                <span class="btn-icon">📋</span>
-                <span class="btn-text">复制编码结果</span>
-            </button>
+            <div class="form-row">
+                <label class="input-title" for="finalCmd"><span class="emoji">🔐</span>编码结果</label>
+                <div class="input-inline-group">
+                    <div class="custom-select" id="custom-encode-select">
+                        <button type="button" id="encodeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="select-text">None</span>
+                            <span class="select-arrow">▼</span>
+                        </button>
+                        <ul id="encodeSelectList" class="select-list" role="listbox" aria-label="选择编码类型">
+                            <li role="option" data-value="none" aria-selected="true">None</li>
+                            <li role="option" data-value="url" aria-selected="false">URL编码</li>
+                            <li role="option" data-value="double_url" aria-selected="false">双URL编码</li>
+                            <li role="option" data-value="base64" aria-selected="false">Base64编码</li>
+                            <li role="option" data-value="hex" aria-selected="false">Hex编码</li>
+                        </ul>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" id="encodeBtn" class="primary-btn">
+                            <span class="btn-icon">🔧</span>
+                            编码
+                        </button>
+                        <button type="button" id="copyBtn" class="copy-btn">
+                            <span class="btn-icon">📋</span>
+                            <span class="btn-text">复制编码结果</span>
+                        </button>
+                    </div>
+                </div>
+                <textarea id="finalCmd" rows="3" readonly aria-label="最终编码结果"></textarea>
+            </div>
         </section>
-
         <footer class="app-footer">
             <div class="status-bar">
                 <span id="statusText" class="status-text">就绪</span>
@@ -100,7 +84,20 @@
             </div>
         </footer>
     </main>
-
     <script src="js/script.js"></script>
+    <script>
+    // 展开/收起说明区
+    const tip = document.getElementById('payloadTip');
+    const btn = document.getElementById('toggleTipBtn');
+    btn.addEventListener('click', function() {
+        if (tip.classList.contains('payload-tip-collapsed')) {
+            tip.classList.remove('payload-tip-collapsed');
+            btn.textContent = '收起';
+        } else {
+            tip.classList.add('payload-tip-collapsed');
+            btn.textContent = '展开';
+        }
+    });
+    </script>
 </body>
 </html> 

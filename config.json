@@ -62,8 +62,8 @@
       "color": "#000000",
       "description": "小黄鸟",
       "icon_path": "D:/SoftWare/Reqable/data/flutter_assets/assets/images/common/app_icon.ico",
-      "last_launch": null,
-      "launch_count": 0,
+      "last_launch": "2025-06-21T12:51:02.405193",
+      "launch_count": 1,
       "name": "Reqable",
       "path": "D:/SoftWare/Reqable/Reqable.exe",
       "subcategory": "",
@@ -73,8 +73,7 @@
   "theme": "modern_light",
   "view_mode": "grid",
   "recent_tools": [
-    "Wireshark",
-    "Fiddler"
+    "Reqable"
   ],
   "show_status_bar": "true",
   "auto_refresh": "true",

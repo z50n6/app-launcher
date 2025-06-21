@@ -259,151 +259,198 @@ class AddToolDialog(QDialog):
     """添加工具对话框"""
     def __init__(self, categories, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("添加工具")
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setWindowTitle("添加/编辑工具")
         self.setMinimumWidth(600)
         self.categories = categories
         
-        # 设置对话框特定样式，确保按钮可见
-        self.setStyleSheet("""
-            QDialog {
-                background: #f5f7fa;
-                color: #222;
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setStyleSheet("background: transparent;")
+        
+        # Container with shadow
+        container = QWidget()
+        container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        container.setStyleSheet("""
+            QWidget {
+                background: #fdfdfe;
                 border-radius: 12px;
             }
-            QFormLayout {
-                margin: 18px 18px 10px 18px;
-            }
-            QLineEdit, QTextEdit, QComboBox {
-                background: #fff;
-                color: #222;
-                border: 2px solid #e0e6ed;
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 15px;
-                transition: border 0.2s;
-            }
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
-                border: 2px solid #007bff;
-                background: #fafdff;
-            }
-            QLabel {
-                color: #333;
-                font-weight: 600;
-                font-size: 15px;
-                margin-bottom: 2px;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f8cff, stop:1 #0056b3);
-                color: #fff;
-                border-radius: 8px;
-                padding: 10px 22px;
-                font-weight: bold;
-                font-size: 15px;
-                border: none;
-                min-width: 90px;
-                margin: 0 6px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0056b3, stop:1 #4f8cff);
-                color: #fff;
-            }
-            QPushButton:pressed {
-                background: #003366;
-                color: #fff;
-            }
-            QPushButton:disabled {
-                background: #b0b0b0;
-                color: #f5f5f5;
-            }
-            QDialogButtonBox QPushButton {
-                min-width: 110px;
-                margin: 8px 10px 0 0;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4f8cff, stop:1 #0056b3);
-                color: #fff;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 15px;
-                border: none;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-            }
-            QDialogButtonBox QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0056b3, stop:1 #4f8cff);
-                color: #fff;
-            }
-            QDialogButtonBox QPushButton:pressed {
-                background: #003366;
-                color: #fff;
-            }
-            QDialogButtonBox QPushButton:disabled {
-                background: #b0b0b0;
-                color: #f5f5f5;
+        """)
+        main_layout.addWidget(container)
+        
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 20)
+        container_layout.setSpacing(0)
+        
+        # --- Custom Title Bar ---
+        title_bar = QWidget()
+        title_bar.setFixedHeight(50)
+        title_bar.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
             }
         """)
         
-        layout = QFormLayout(self)
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(15, 0, 15, 0)
         
-        # 工具名称
+        title_text = QLabel("添加/编辑工具")
+        title_text.setStyleSheet("font-size: 16px; font-weight: bold; color: white; background: transparent;")
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
+
+        # Draggability
+        self.offset = None
+        def mousePressEvent(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.offset = event.globalPosition().toPoint() - self.pos()
+        def mouseMoveEvent(event):
+            if self.offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
+                self.move(event.globalPosition().toPoint() - self.offset)
+        def mouseReleaseEvent(event):
+            self.offset = None
+        title_bar.mousePressEvent = mousePressEvent
+        title_bar.mouseMoveEvent = mouseMoveEvent
+        title_bar.mouseReleaseEvent = mouseReleaseEvent
+        
+        container_layout.addWidget(title_bar)
+        
+        # --- Form Layout ---
+        form_layout = QFormLayout()
+        form_layout.setContentsMargins(25, 20, 25, 20)
+        form_layout.setSpacing(18)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # --- Widgets ---
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("请输入工具名称")
-        layout.addRow("工具名称:", self.name_edit)
-        
-        # 工具类型
         self.type_combo = QComboBox()
-        self.type_combo.addItems([
-            "GUI应用", "命令行", "java8图形化", "java11图形化", 
-            "java8", "java11", "python", "powershell", "批处理", "网页", "文件夹"
-        ])
-        self.type_combo.currentTextChanged.connect(self.on_type_changed)
-        layout.addRow("工具类型:", self.type_combo)
-        
-        # 工具路径
-        path_layout = QHBoxLayout()
         self.path_edit = QLineEdit()
-        self.path_edit.setPlaceholderText("请输入工具路径或URL")
-        self.path_btn = QPushButton("浏览...")
+        self.path_btn = QPushButton("📂")
+        self.icon_edit = QLineEdit()
+        self.icon_btn = QPushButton("🖼️")
+        self.category_combo = QComboBox()
+        self.args_edit = QLineEdit()
+        self.desc_edit = QTextEdit()
+        
+        # --- Styling ---
+        common_style = """
+            QLineEdit, QTextEdit, QComboBox {
+                background: #f1f3f5;
+                color: #212529;
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+                border: 1px solid #764ba2;
+                background: #fdfdfe;
+            }
+            QLabel {
+                color: #495057;
+                font-weight: 600;
+                font-size: 14px;
+            }
+            QPushButton {
+                background: #e9ecef;
+                color: #495057;
+                border-radius: 8px;
+                padding: 8px;
+                font-weight: bold;
+                font-size: 13px;
+                border: 1px solid #dee2e6;
+            }
+            QPushButton:hover { background: #dee2e6; }
+        """
+        self.setStyleSheet(self.styleSheet() + common_style)
+
+        # Tool Name
+        self.name_edit.setPlaceholderText("例如: MyCoolTool")
+        form_layout.addRow("工具名称:", self.name_edit)
+        
+        # Tool Type
+        self.type_combo.addItems(["GUI应用", "命令行", "java8图形化", "java11图形化", "java8", "java11", "python", "powershell", "批处理", "网页", "文件夹"])
+        self.type_combo.currentTextChanged.connect(self.on_type_changed)
+        form_layout.addRow("工具类型:", self.type_combo)
+        
+        # Tool Path
+        path_layout = QHBoxLayout()
+        self.path_edit.setPlaceholderText("选择工具路径或输入URL")
+        self.path_btn.setFixedSize(40, 40)
+        self.path_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.path_btn.setToolTip("浏览文件或文件夹")
         self.path_btn.clicked.connect(self.browse_path)
         path_layout.addWidget(self.path_edit)
         path_layout.addWidget(self.path_btn)
-        layout.addRow("工具路径:", path_layout)
+        form_layout.addRow("工具路径:", path_layout)
         
-        # 图标选择
+        # Icon Path
         icon_layout = QHBoxLayout()
-        self.icon_edit = QLineEdit()
-        self.icon_edit.setPlaceholderText("选择图标文件（可选）")
-        self.icon_btn = QPushButton("选择...")
+        self.icon_edit.setPlaceholderText("可选: 选择一个漂亮的图标")
+        self.icon_btn.setFixedSize(40, 40)
+        self.icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.icon_btn.setToolTip("选择图标文件")
         self.icon_btn.clicked.connect(self.browse_icon)
         icon_layout.addWidget(self.icon_edit)
         icon_layout.addWidget(self.icon_btn)
-        layout.addRow("图标选择:", icon_layout)
+        form_layout.addRow("图标路径:", icon_layout)
         
-        # 工具分类
-        self.category_combo = QComboBox()
+        # Category
         self.category_combo.addItems(categories)
         self.category_combo.setEditable(True)
-        layout.addRow("工具分类:", self.category_combo)
+        form_layout.addRow("工具分类:", self.category_combo)
         
-        # 工具启动参数
-        self.args_edit = QLineEdit()
-        self.args_edit.setPlaceholderText("请输入启动参数（可选）")
-        layout.addRow("启动参数:", self.args_edit)
+        # Arguments
+        self.args_edit.setPlaceholderText("可选: 输入启动参数")
+        form_layout.addRow("启动参数:", self.args_edit)
         
-        # 工具描述
-        self.desc_edit = QTextEdit()
-        self.desc_edit.setMaximumHeight(100)
-        self.desc_edit.setPlaceholderText("请输入工具描述（可选）")
-        layout.addRow("工具描述:", self.desc_edit)
+        # Description
+        self.desc_edit.setMaximumHeight(80)
+        self.desc_edit.setPlaceholderText("可选: 简单的描述一下这个工具")
+        form_layout.addRow("工具描述:", self.desc_edit)
         
-        # 按钮
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-            Qt.Orientation.Horizontal, self
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
-    
+        container_layout.addLayout(form_layout)
+        
+        # --- Buttons ---
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 10, 25, 0)
+        buttons_layout.addStretch()
+
+        self.ok_button = QPushButton("✔️ 确定")
+        self.cancel_button = QPushButton("❌ 取消")
+
+        self.ok_button.setFixedSize(120, 40)
+        self.cancel_button.setFixedSize(120, 40)
+        
+        self.ok_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cancel_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+        
+        self.ok_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                color: white; border-radius: 20px; font-size: 14px; font-weight: bold; border: none;
+            }
+             QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #38f9d7, stop:1 #43e97b); }
+        """)
+        self.cancel_button.setStyleSheet("""
+            QPushButton {
+                background: #e9ecef; color: #495057; border-radius: 20px; font-size: 14px; font-weight: bold; border: none;
+            }
+            QPushButton:hover { background: #dee2e6; }
+        """)
+        
+        buttons_layout.addWidget(self.cancel_button)
+        buttons_layout.addWidget(self.ok_button)
+        container_layout.addLayout(buttons_layout)
+
     def on_type_changed(self, type_text):
         """工具类型改变时的处理"""
         if type_text == "网页":
@@ -911,47 +958,103 @@ class MainWindow(QMainWindow):
             self.status_label.setText("进入全屏模式")
     
     def show_about(self):
-        """显示关于对话框（美化+可点击GitHub链接）"""
+        """显示关于对话框（现代化UI）"""
         dialog = QDialog(self)
-        dialog.setWindowTitle("关于 AppLauncher")
-        dialog.setMinimumSize(420, 320)
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #fff;
-                border-radius: 14px;
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        dialog.setMinimumSize(450, 550)
+
+        # Main layout
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Container with shadow
+        container = QWidget()
+        container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        container.setStyleSheet("""
+            QWidget {
+                background: #ffffff;
+                border-radius: 12px;
             }
-            QLabel, QTextBrowser {
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+        """)
+        main_layout.addWidget(container)
+        
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+
+        # --- Custom Title Bar ---
+        title_bar = QWidget()
+        title_bar.setFixedHeight(50)
+        title_bar.setStyleSheet("""
+            QWidget {
+                background: #2d3436;
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
             }
+        """)
+        
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(15, 0, 15, 0)
+        
+        title_icon = QLabel("💡")
+        title_icon.setStyleSheet("font-size: 20px; color: white; background: transparent;")
+        title_layout.addWidget(title_icon)
+        
+        title_text = QLabel("关于 AppLauncher")
+        title_text.setStyleSheet("font-size: 16px; font-weight: bold; color: white; background: transparent; margin-left: 5px;")
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
+
+        # Close button
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(30, 30)
+        close_btn.setStyleSheet("""
+            QPushButton { background: rgba(255, 255, 255, 0.1); border: none; border-radius: 15px; color: white; font-size: 14px; font-weight: bold; }
+            QPushButton:hover { background: rgba(255, 255, 255, 0.2); }
+            QPushButton:pressed { background: rgba(0, 0, 0, 0.1); }
+        """)
+        close_btn.clicked.connect(dialog.accept)
+        title_layout.addWidget(close_btn)
+        
+        # Draggability
+        dialog.offset = None
+        def mousePressEvent(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                dialog.offset = event.globalPosition().toPoint() - dialog.pos()
+        def mouseMoveEvent(event):
+            if dialog.offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
+                dialog.move(event.globalPosition().toPoint() - dialog.offset)
+        def mouseReleaseEvent(event):
+            dialog.offset = None
+        title_bar.mousePressEvent = mousePressEvent
+        title_bar.mouseMoveEvent = mouseMoveEvent
+        title_bar.mouseReleaseEvent = mouseReleaseEvent
+
+        container_layout.addWidget(title_bar)
+        
+        # --- Content ---
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(25, 20, 25, 25)
+        content_layout.setSpacing(15)
+
+        title = QLabel("关于 AppLauncher")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("font-size: 24px; font-weight: bold; color: #1da1f2; margin-bottom: 10px;")
+        content_layout.addWidget(title)
+        
+        about_text = QTextBrowser()
+        about_text.setOpenExternalLinks(True)
+        about_text.setStyleSheet("""
             QTextBrowser {
                 border: none;
                 background: transparent;
-                font-size: 15px;
-                color: #222;
-                margin: 0 8px;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
-                color: #fff;
-                border-radius: 8px;
-                font-size: 15px;
-                font-weight: bold;
-                min-width: 90px;
-                min-height: 34px;
-                margin: 0 8px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+                font-size: 14px;
+                color: #34495e;
             }
         """)
-        layout = QVBoxLayout(dialog)
-        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>关于 AppLauncher</h2>")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        about_text = QTextBrowser()
-        about_text.setOpenExternalLinks(True)
         about_text.setHtml('''
-        <div style="font-size:15px;line-height:1.8;">
+        <div style="line-height:1.7;">
         <b>AppLauncher - 智能程序启动与编码助手</b><br><br>
         <b>版本：</b>1.0<br>
         <b>功能：</b>工具管理、分类组织、快速启动、CyberChef集成<br><br>
@@ -965,13 +1068,37 @@ class MainWindow(QMainWindow):
         • F5：刷新<br>
         • F11：全屏切换<br><br>
         <b>开发者：</b><br>
-        • GitHub：<a href="https://github.com/z50n6" style="color:#1da1f2;text-decoration:underline;">https://github.com/z50n6</a>
+        • GitHub：<a href="https://github.com/z50n6" style="color:#1da1f2;text-decoration:none; font-weight:bold;">z50n6</a>
         </div>
         ''')
-        layout.addWidget(about_text)
+        content_layout.addWidget(about_text)
+        
         btn = QPushButton("关闭")
+        btn.setMinimumSize(120, 40)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
+                color: white;
+                border-radius: 20px;
+                font-size: 15px;
+                font-weight: bold;
+                border: none;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+            }
+        """)
         btn.clicked.connect(dialog.accept)
-        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(btn)
+        button_layout.addStretch()
+        content_layout.addLayout(button_layout)
+
+        container_layout.addLayout(content_layout)
+        
         dialog.exec()
     
     def create_status_bar(self):
@@ -1150,80 +1277,79 @@ class MainWindow(QMainWindow):
         if tool:
             self.launch_tool(item)
     
+    def _launch_and_update_stats(self, tool_to_launch):
+        """统一处理工具启动、统计更新和配置保存"""
+        try:
+            # --- 1. 执行工具 ---
+            tool = tool_to_launch  # 别名，方便复制代码
+            if tool.tool_type == "url":
+                QDesktopServices.openUrl(QUrl(tool.path))
+            elif tool.tool_type == "folder":
+                QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
+            elif tool.tool_type in ["java8_gui", "java11_gui"]:
+                java_cmd = "java"
+                cmd = [java_cmd, "-jar", tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            elif tool.tool_type in ["java8", "java11"]:
+                java_cmd = "java"
+                cmd = [java_cmd, "-jar", tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            elif tool.tool_type == "python":
+                cmd = ["python", tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            elif tool.tool_type == "powershell":
+                cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            elif tool.tool_type == "batch":
+                cmd = [tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            else:  # 默认为 exe
+                cmd = [tool.path]
+                if tool.args:
+                    cmd.extend(tool.args.split())
+                subprocess.Popen(cmd)
+            
+            # --- 2. 更新统计数据（直接在原始字典上操作） ---
+            for tool_dict in self.config.tools:
+                if tool_dict.get('name') == tool.name and tool_dict.get('path') == tool.path:
+                    tool_dict['launch_count'] = tool_dict.get('launch_count', 0) + 1
+                    tool_dict['last_launch'] = datetime.now().isoformat()
+                    break # 找到后即中断循环
+            
+            # --- 3. 更新最近使用列表并保存 ---
+            self.config.add_to_recent(tool.name) # add_to_recent内部已包含save_config
+            
+            # --- 4. 更新UI ---
+            self.update_status_stats()
+            self.status_label.setText(f"已启动: {tool.name}")
+            return True
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
+            self.status_label.setText(f"启动失败: {tool.name}")
+            return False
+
     def launch_tool(self, item):
         """启动工具"""
         tool = item.data(Qt.ItemDataRole.UserRole)
         if not tool:
             return
             
-        # 如果是占位符工具，提示用户
         if tool.tool_type == "placeholder":
             QMessageBox.information(self, "提示", "这是一个空分类的占位符，请添加实际工具到此分类。")
             return
             
-        try:
-            if tool.tool_type == "url":
-                # 网页类型
-                QDesktopServices.openUrl(QUrl(tool.path))
-            elif tool.tool_type == "folder":
-                # 文件夹类型
-                QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
-            elif tool.tool_type in ["java8_gui", "java11_gui"]:
-                # Java图形化应用
-                java_cmd = "java" if tool.tool_type == "java8_gui" else "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type in ["java8", "java11"]:
-                # Java命令行应用
-                java_cmd = "java" if tool.tool_type == "java8" else "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "python":
-                # Python脚本
-                cmd = ["python", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "powershell":
-                # PowerShell脚本
-                cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "batch":
-                # 批处理文件
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            else:
-                # 默认可执行文件
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            
-            # 更新启动次数和最后启动时间
-            tool.launch_count += 1
-            tool.last_launch = datetime.now().isoformat()
-            
-            # 添加到最近使用
-            self.config.add_to_recent(tool.name)
-            
-            # 保存配置并更新界面
-            self.config.save_config()
-            self.update_status_stats()
-            
-            # 更新状态栏
-            self.status_label.setText(f"已启动: {tool.name}")
-            
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
-            self.status_label.setText(f"启动失败: {tool.name}")
+        self._launch_and_update_stats(tool)
     
     def edit_tool(self, item):
         """编辑工具"""
@@ -1785,243 +1911,636 @@ class MainWindow(QMainWindow):
                 self.update_tools_list(category_name)
 
     def show_total_tools(self):
-        """显示总工具数统计（美化弹窗）"""
+        """显示总工具数统计（重新设计现代化UI）"""
         total_tools = len(self.config.tools)
         total_categories = len(self.config.categories)
         total_launches = sum(tool.get("launch_count", 0) for tool in self.config.tools)
-        stats_text = f"总工具数: {total_tools}\n总分类数: {total_categories}\n总启动次数: {total_launches}"
-        if total_tools > 0:
-            avg_launches = total_launches / total_tools
-            stats_text += f"\n平均启动次数: {avg_launches:.1f}"
-        # 使用自定义QDialog美化弹窗
+        
+        # 计算更多统计信息
+        active_tools = sum(1 for tool in self.config.tools if tool.get("launch_count", 0) > 0)
+        avg_launches = total_launches / total_tools if total_tools > 0 else 0
+        
+        # 计算使用率
+        usage_rate = (active_tools / total_tools * 100) if total_tools > 0 else 0
+        
+        # 创建现代化对话框
         dialog = QDialog(self)
-        dialog.setWindowTitle("📊 工具统计")
-        dialog.setMinimumSize(350, 220)
-        layout = QVBoxLayout(dialog)
-        title = QLabel("<h2 style='color:#1da1f2;margin-bottom:8px;'>📊 工具统计</h2>")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        stats_label = QLabel()
-        stats_label.setText(f"<div style='font-size:18px;color:#222;margin:10px 0 18px 0;'><b>总工具数：</b> <span style='color:#1da1f2;'>{total_tools}</span><br>"
-                            f"<b>总分类数：</b> <span style='color:#1da1f2;'>{total_categories}</span><br>"
-                            f"<b>总启动次数：</b> <span style='color:#1da1f2;'>{total_launches}</span><br>"
-                            + (f"<b>平均启动次数：</b> <span style='color:#1da1f2;'>{avg_launches:.1f}</span>" if total_tools > 0 else "") + "</div>")
-        stats_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(stats_label)
-        btn = QPushButton("关闭")
-        btn.setFixedHeight(36)
-        btn.setStyleSheet("""
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        dialog.setWindowTitle("📊 工具统计面板")
+        dialog.setMinimumSize(800, 500)
+        dialog.setMaximumSize(1000, 600)
+        
+        # 居中显示
+        screen = QApplication.primaryScreen().geometry()
+        dialog.move((screen.width() - dialog.width()) // 2,
+                   (screen.height() - dialog.height()) // 2)
+        
+        # 主布局
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # 顶部标题栏
+        title_bar = QWidget()
+        title_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        title_bar.setFixedHeight(60)
+        title_bar.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+            }
+        """)
+        
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(20, 0, 20, 0)
+        
+        title_icon = QLabel("📊")
+        title_icon.setStyleSheet("font-size: 24px;")
+        title_layout.addWidget(title_icon)
+        
+        title_text = QLabel("工具统计面板")
+        title_text.setStyleSheet("""
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            margin-left: 10px;
+        """)
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
+        
+        # Make window draggable
+        dialog.offset = None
+        def mousePressEvent(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                dialog.offset = event.globalPosition().toPoint() - dialog.pos()
+
+        def mouseMoveEvent(event):
+            if dialog.offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
+                dialog.move(event.globalPosition().toPoint() - dialog.offset)
+
+        def mouseReleaseEvent(event):
+            dialog.offset = None
+        
+        title_bar.mousePressEvent = mousePressEvent
+        title_bar.mouseMoveEvent = mouseMoveEvent
+        title_bar.mouseReleaseEvent = mouseReleaseEvent
+        
+        # 关闭按钮
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(30, 30)
+        close_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
-                color: #fff;
-                border-radius: 8px;
-                font-size: 16px;
+                background: rgba(255, 255, 255, 0.2);
+                border: none;
+                border-radius: 15px;
+                color: white;
+                font-size: 14px;
                 font-weight: bold;
-                min-width: 100px;
-                margin-top: 10px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+                background: rgba(255, 255, 255, 0.3);
+            }
+            QPushButton:pressed {
+                background: rgba(255, 255, 255, 0.1);
             }
         """)
-        btn.clicked.connect(dialog.accept)
-        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignCenter)
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #fff;
-                border-radius: 14px;
-            }
-            QLabel {
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+        close_btn.clicked.connect(dialog.accept)
+        title_layout.addWidget(close_btn)
+        
+        main_layout.addWidget(title_bar)
+        
+        # 内容区域
+        content_widget = QWidget()
+        content_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        content_widget.setStyleSheet("""
+            QWidget {
+                background: #f8f9fa;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
             }
         """)
+        
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(20)
+        
+        # 主要统计卡片行
+        main_stats_layout = QHBoxLayout()
+        main_stats_layout.setSpacing(15)
+        
+        # 创建主要统计卡片
+        main_stats = [
+            {
+                "title": "总工具数",
+                "value": str(total_tools),
+                "icon": "🛠️",
+                "color": "#667eea",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #667eea, stop:1 #764ba2)",
+                "description": "已配置的工具总数"
+            },
+            {
+                "title": "总分类数",
+                "value": str(total_categories),
+                "icon": "📁",
+                "color": "#f093fb",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f093fb, stop:1 #f5576c)",
+                "description": "工具分类数量"
+            },
+            {
+                "title": "总启动次数",
+                "value": str(total_launches),
+                "icon": "🚀",
+                "color": "#4facfe",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4facfe, stop:1 #00f2fe)",
+                "description": "累计启动次数"
+            }
+        ]
+        
+        for stat in main_stats:
+            card = self._create_stat_card(stat)
+            main_stats_layout.addWidget(card)
+        
+        content_layout.addLayout(main_stats_layout)
+        
+        # 次要统计卡片行
+        secondary_stats_layout = QHBoxLayout()
+        secondary_stats_layout.setSpacing(15)
+        
+        # 创建次要统计卡片
+        secondary_stats = [
+            {
+                "title": "活跃工具",
+                "value": f"{active_tools}",
+                "icon": "⭐",
+                "color": "#43e97b",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7)",
+                "description": f"使用率: {usage_rate:.1f}%"
+            },
+            {
+                "title": "平均启动",
+                "value": f"{avg_launches:.1f}",
+                "icon": "📈",
+                "color": "#fa709a",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fa709a, stop:1 #fee140)",
+                "description": "每个工具平均启动次数"
+            },
+            {
+                "title": "使用状态",
+                "value": "正常" if total_tools > 0 else "无工具",
+                "icon": "✅" if total_tools > 0 else "⚠️",
+                "color": "#a8edea" if total_tools > 0 else "#fed6e3",
+                "gradient": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #a8edea, stop:1 #fed6e3)" if total_tools > 0 else "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fed6e3, stop:1 #a8edea)",
+                "description": "系统运行状态"
+            }
+        ]
+        
+        for stat in secondary_stats:
+            card = self._create_stat_card(stat)
+            secondary_stats_layout.addWidget(card)
+        
+        content_layout.addLayout(secondary_stats_layout)
+        
+        # 详细信息区域
+        details_group = QGroupBox("📋 详细信息")
+        details_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
+                font-weight: bold;
+                color: #495057;
+                border: 2px solid #e9ecef;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px 0 8px;
+                background: #f8f9fa;
+            }
+        """)
+        
+        details_layout = QVBoxLayout(details_group)
+        details_layout.setContentsMargins(15, 20, 15, 15)
+        details_layout.setSpacing(10)
+        
+        # 详细信息文本
+        details_text = f"""
+        <div style="font-size: 13px; line-height: 1.6; color: #6c757d;">
+        <b>📊 统计概览：</b><br>
+        • 当前共配置了 <span style="color: #667eea; font-weight: bold;">{total_tools}</span> 个工具<br>
+        • 分布在 <span style="color: #f093fb; font-weight: bold;">{total_categories}</span> 个分类中<br>
+        • 累计启动 <span style="color: #4facfe; font-weight: bold;">{total_launches}</span> 次<br>
+        • 活跃工具占比 <span style="color: #43e97b; font-weight: bold;">{usage_rate:.1f}%</span><br>
+        • 平均每个工具启动 <span style="color: #fa709a; font-weight: bold;">{avg_launches:.1f}</span> 次<br>
+        </div>
+        """
+        
+        details_label = QLabel(details_text)
+        details_label.setWordWrap(True)
+        details_layout.addWidget(details_label)
+        
+        content_layout.addWidget(details_group)
+        
+        # 底部按钮区域
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        # 刷新按钮
+        refresh_btn = QPushButton("🔄 刷新统计")
+        refresh_btn.setFixedSize(120, 40)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #38f9d7, stop:1 #43e97b);
+            }
+            QPushButton:pressed {
+                background: #3dd16a;
+            }
+        """)
+        refresh_btn.clicked.connect(lambda: self.refresh_stats_and_close(dialog))
+        
+        # 导出按钮
+        export_btn = QPushButton("📤 导出报告")
+        export_btn.setFixedSize(120, 40)
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #38f9d7, stop:1 #43e97b);
+            }
+            QPushButton:pressed {
+                background: #3dd16a;
+            }
+        """)
+        export_btn.clicked.connect(lambda: self.export_stats_report())
+        
+        button_layout.addWidget(refresh_btn)
+        button_layout.addWidget(export_btn)
+        button_layout.addStretch()
+        
+        content_layout.addLayout(button_layout)
+        
+        main_layout.addWidget(content_widget)
+        
         dialog.exec()
     
+    def _create_stat_card(self, stat_data):
+        """创建统计卡片"""
+        card = QWidget()
+        card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        card.setFixedSize(200, 120)
+        card.setStyleSheet(f"""
+            QWidget {{
+                background: {stat_data['gradient']};
+                border-radius: 12px;
+                color: white;
+            }}
+        """)
+        
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(8)
+        
+        # 图标和标题
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(10)
+        
+        icon_label = QLabel(stat_data['icon'])
+        icon_label.setStyleSheet("font-size: 20px;")
+        header_layout.addWidget(icon_label)
+        
+        title_label = QLabel(stat_data['title'])
+        title_label.setStyleSheet("""
+            font-size: 12px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.9);
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        
+        layout.addLayout(header_layout)
+        
+        # 数值
+        value_label = QLabel(stat_data['value'])
+        value_label.setStyleSheet("""
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+        """)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(value_label)
+        
+        # 描述
+        desc_label = QLabel(stat_data['description'])
+        desc_label.setStyleSheet("""
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.8);
+        """)
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc_label.setWordWrap(True)
+        layout.addWidget(desc_label)
+        
+        return card
+    
+    def export_stats_report(self):
+        """导出统计报告"""
+        try:
+            total_tools = len(self.config.tools)
+            total_categories = len(self.config.categories)
+            total_launches = sum(tool.get("launch_count", 0) for tool in self.config.tools)
+            active_tools = sum(1 for tool in self.config.tools if tool.get("launch_count", 0) > 0)
+            avg_launches = total_launches / total_tools if total_tools > 0 else 0
+            usage_rate = (active_tools / total_tools * 100) if total_tools > 0 else 0
+            
+            # 生成报告内容
+            report_content = f"""
+AppLauncher 工具统计报告
+生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+=== 基础统计 ===
+总工具数: {total_tools}
+总分类数: {total_categories}
+总启动次数: {total_launches}
+活跃工具数: {active_tools}
+平均启动次数: {avg_launches:.1f}
+使用率: {usage_rate:.1f}%
+
+=== 分类统计 ===
+"""
+            
+            # 按分类统计
+            category_stats = {}
+            for tool in self.config.tools:
+                category = tool.get('category', '未分类')
+                if category not in category_stats:
+                    category_stats[category] = {'count': 0, 'launches': 0}
+                category_stats[category]['count'] += 1
+                category_stats[category]['launches'] += tool.get('launch_count', 0)
+            
+            for category, stats in sorted(category_stats.items()):
+                report_content += f"{category}: {stats['count']} 个工具, {stats['launches']} 次启动\n"
+            
+            report_content += f"""
+=== 最常用工具 (前10名) ===
+"""
+            
+            # 最常用工具
+            sorted_tools = sorted(self.config.tools, key=lambda x: x.get('launch_count', 0), reverse=True)
+            for i, tool in enumerate(sorted_tools[:10], 1):
+                report_content += f"{i}. {tool.get('name', 'Unknown')}: {tool.get('launch_count', 0)} 次启动\n"
+            
+            # 保存报告
+            path, _ = QFileDialog.getSaveFileName(
+                self, "导出统计报告", f"AppLauncher_统计报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", 
+                "文本文件 (*.txt)"
+            )
+            
+            if path:
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.write(report_content)
+                QMessageBox.information(self, "导出成功", f"统计报告已导出到:\n{path}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"导出统计报告时发生错误:\n{str(e)}")
+    
+    def refresh_stats_and_close(self, dialog):
+        """刷新统计并关闭对话框"""
+        self.update_status_stats()
+        dialog.accept()
+        self.show_total_tools()
+    
     def show_recent_tools(self):
-        """显示最近启动的工具（紧凑单列布局）"""
+        """显示最近启动的工具（优化UI，支持图标和点击执行）"""
         if not self.config.recent_tools:
             QMessageBox.information(self, "最近启动的工具", "暂无最近启动的工具")
             return
 
         dialog = QDialog(self)
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         dialog.setWindowTitle("🕒 最近启动的工具")
-        dialog.setMinimumSize(480, 340)
-        dialog.resize(540, 400)
+        dialog.setMinimumSize(800, 600)
 
-        # 居中
+        # 居中显示
         screen = QApplication.primaryScreen().geometry()
         dialog.move((screen.width() - dialog.width()) // 2,
                    (screen.height() - dialog.height()) // 2)
 
-        dialog.setStyleSheet("""
-            QDialog {
-                background: #fff;
-                border-radius: 10px;
-            }
-            QLabel {
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
-            }
-            QScrollArea {
-                border: none;
-                background: #fafbfc;
-            }
-            QWidget#tool_item {
-                background: #fff;
-                border: 1px solid #e1e8ed;
-                border-radius: 6px;
-                margin: 2px;
-            }
-            QWidget#tool_item:hover {
-                background: #e3f2fd;
-                border-color: #1da1f2;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
-                color: #fff;
-                border-radius: 7px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 70px;
-                min-height: 26px;
-                margin: 0 6px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
+        # Main layout
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Custom Title Bar
+        title_bar = QWidget()
+        title_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        title_bar.setFixedHeight(60)
+        title_bar.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
             }
         """)
+        
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(20, 0, 20, 0)
 
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        title_icon = QLabel("🕒")
+        title_icon.setStyleSheet("font-size: 24px; color: white;")
+        title_layout.addWidget(title_icon)
 
-        # 标题
-        title = QLabel("<h3 style='color:#1da1f2;margin-bottom:2px;'>🕒 最近启动的工具</h3>")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        title_text = QLabel("最近启动的工具")
+        title_text.setStyleSheet("font-size: 18px; font-weight: bold; color: white; margin-left: 10px;")
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
 
-        # 提示信息
-        info_label = QLabel("<span style='color:#666;font-size:12px;'>双击工具项可直接启动</span>")
-        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(info_label)
+        # Draggability
+        dialog.offset = None
+        def mousePressEvent(event):
+            if event.button() == Qt.MouseButton.LeftButton:
+                dialog.offset = event.globalPosition().toPoint() - dialog.pos()
+        def mouseMoveEvent(event):
+            if dialog.offset is not None and event.buttons() == Qt.MouseButton.LeftButton:
+                dialog.move(event.globalPosition().toPoint() - dialog.offset)
+        def mouseReleaseEvent(event):
+            dialog.offset = None
+        title_bar.mousePressEvent = mousePressEvent
+        title_bar.mouseMoveEvent = mouseMoveEvent
+        title_bar.mouseReleaseEvent = mouseReleaseEvent
 
-        # 滚动区域
+        # Close button
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(30, 30)
+        close_btn.setStyleSheet("""
+            QPushButton { background: rgba(255, 255, 255, 0.2); border: none; border-radius: 15px; color: white; font-size: 14px; font-weight: bold; }
+            QPushButton:hover { background: rgba(255, 255, 255, 0.3); }
+            QPushButton:pressed { background: rgba(255, 255, 255, 0.1); }
+        """)
+        close_btn.clicked.connect(dialog.accept)
+        title_layout.addWidget(close_btn)
+        main_layout.addWidget(title_bar)
+
+        # Content Area
+        content_widget = QWidget()
+        content_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        content_widget.setStyleSheet("""
+            QWidget {
+                background: #f8f9fa;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+        """)
+        
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(15)
+
+        # Scroll Area for the list
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { border: none; background: #e9ecef; width: 8px; margin: 0px 0px 0px 0px; border-radius: 4px; }
+            QScrollBar::handle:vertical { background: #ced4da; min-height: 20px; border-radius: 4px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; background: none; }
+        """)
 
-        container = QWidget()
-        v_layout = QVBoxLayout(container)
-        v_layout.setContentsMargins(2, 2, 2, 2)
-        v_layout.setSpacing(5)
-
+        list_container = QWidget()
+        list_layout = QVBoxLayout(list_container)
+        list_layout.setContentsMargins(0, 0, 5, 0) # Right margin for scrollbar
+        list_layout.setSpacing(10)
+        
+        # Populate list
         for i, tool_name in enumerate(self.config.recent_tools[:20], 1):
-            tool = None
-            for tool_data in self.config.tools:
-                if tool_data["name"] == tool_name:
-                    tool = Tool.from_dict(tool_data)
-                    break
+            tool = next((Tool.from_dict(t) for t in self.config.tools if t["name"] == tool_name), None)
             if tool:
-                tool_item = QWidget()
-                tool_item.setObjectName("tool_item")
-                tool_item.setCursor(Qt.CursorShape.PointingHandCursor)
-                item_layout = QHBoxLayout(tool_item)
-                item_layout.setContentsMargins(7, 4, 7, 4)
-                item_layout.setSpacing(7)
+                tool_item_card = self._create_recent_tool_card(tool, i, dialog)
+                list_layout.addWidget(tool_item_card)
+        
+        list_layout.addStretch(1)
+        scroll_area.setWidget(list_container)
+        content_layout.addWidget(scroll_area)
 
-                # 左侧：序号和图标
-                left_widget = QWidget()
-                left_layout = QHBoxLayout(left_widget)
-                left_layout.setContentsMargins(0, 0, 0, 0)
-                left_layout.setSpacing(2)
-                left_widget.setFixedWidth(38)
-
-                number_label = QLabel(f"{i}.")
-                number_label.setStyleSheet("font-size: 11px; color: #95a5a6; min-width: 12px; font-weight: bold;")
-                number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                left_layout.addWidget(number_label)
-
-                icon_container = QWidget()
-                icon_container.setFixedSize(18, 18)
-                icon_layout = QVBoxLayout(icon_container)
-                icon_layout.setContentsMargins(0, 0, 0, 0)
-                icon_label = QLabel()
-                if tool.icon_path and os.path.exists(tool.icon_path):
-                    icon = QIcon(tool.icon_path)
-                    pixmap = icon.pixmap(14, 14)
-                    icon_label.setPixmap(pixmap)
-                else:
-                    default_icon = self._get_tool_icon(tool)
-                    icon_label.setText(f"<span style='font-size:12px;'>{default_icon}</span>")
-                icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                icon_layout.addWidget(icon_label)
-                left_layout.addWidget(icon_container)
-                item_layout.addWidget(left_widget)
-
-                # 中间：信息
-                info_container = QWidget()
-                info_layout = QVBoxLayout(info_container)
-                info_layout.setContentsMargins(0, 0, 0, 0)
-                info_layout.setSpacing(1)
-
-                name_label = QLabel(tool_name)
-                name_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #2c3e50; padding: 0;")
-                name_label.setWordWrap(True)
-                name_label.setMinimumHeight(12)
-                info_layout.addWidget(name_label)
-
-                details_label = QLabel(f"{tool.tool_type} | 启动:{tool.launch_count}")
-                details_label.setStyleSheet("font-size: 10px; color: #7f8c8d; padding: 0;")
-                info_layout.addWidget(details_label)
-
-                item_layout.addWidget(info_container, 1)
-
-                # 右侧：时间
-                if tool.last_launch:
-                    time_container = QWidget()
-                    time_container.setFixedWidth(60)
-                    time_layout = QVBoxLayout(time_container)
-                    time_layout.setContentsMargins(0, 0, 0, 0)
-                    time_label = QLabel(tool.last_launch[:10])
-                    time_label.setStyleSheet("font-size: 10px; color: #95a5a6;")
-                    time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                    time_layout.addWidget(time_label)
-                    item_layout.addWidget(time_container)
-
-                tool_item.setProperty("tool", tool)
-                tool_item.mouseDoubleClickEvent = lambda event, t=tool: self.launch_tool_from_recent(t, dialog)
-                v_layout.addWidget(tool_item)
-
-        v_layout.addStretch(1)
-        scroll_area.setWidget(container)
-        layout.addWidget(scroll_area)
-
-        # 按钮
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        clear_button = QPushButton("清空历史")
-        clear_button.setFixedWidth(70)
+        # Bottom button area
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
+        clear_button = QPushButton("🗑️ 清空历史")
+        clear_button.setFixedSize(120, 40)
+        clear_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fa709a, stop:1 #fee140);
+                color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: bold;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fee140, stop:1 #fa709a); }
+        """)
         clear_button.clicked.connect(lambda: self.clear_recent_history(dialog))
-        close_button = QPushButton("关闭")
-        close_button.setFixedWidth(60)
-        close_button.clicked.connect(dialog.accept)
-        button_layout.addWidget(clear_button)
-        button_layout.addWidget(close_button)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
+        bottom_layout.addWidget(clear_button)
+        bottom_layout.addStretch()
+        content_layout.addLayout(bottom_layout)
+
+        main_layout.addWidget(content_widget)
         dialog.exec()
+    
+    def _create_recent_tool_card(self, tool, index, parent_dialog):
+        """Creates a styled card widget for a recent tool."""
+        card = QWidget()
+        card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        card.setMinimumHeight(80)
+        # Add a property to make it easy to find for double-click event handling if needed later
+        card.setProperty("isCard", True)
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setStyleSheet("""
+            QWidget[isCard="true"] {
+                background: white;
+                border: 1px solid #e9ecef;
+                border-radius: 10px;
+            }
+            QWidget[isCard="true"]:hover {
+                border: 1px solid #43e97b;
+                background: #f8f9fa;
+            }
+        """)
+        
+        card_layout = QHBoxLayout(card)
+        card_layout.setContentsMargins(15, 10, 15, 10)
+        card_layout.setSpacing(15)
+
+        # Index
+        index_label = QLabel(f"{index:02d}")
+        index_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ced4da; background: transparent;")
+        index_label.setFixedWidth(30)
+        card_layout.addWidget(index_label)
+
+        # Icon
+        icon_label = QLabel()
+        icon_label.setFixedSize(48, 48)
+        icon_label.setStyleSheet("background: #e9ecef; border-radius: 24px;")
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        if tool.icon_path and os.path.exists(tool.icon_path):
+            pixmap = QIcon(tool.icon_path).pixmap(32, 32)
+            icon_label.setPixmap(pixmap)
+        else:
+            emoji = self._get_tool_icon(tool)
+            icon_label.setText(f"<span style='font-size: 24px;'>{emoji}</span>")
+            
+        card_layout.addWidget(icon_label)
+
+        # Info
+        info_container = QWidget()
+        info_container.setStyleSheet("background: transparent;")
+        info_layout = QVBoxLayout(info_container)
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.setSpacing(5)
+        name_label = QLabel(tool.name)
+        name_label.setStyleSheet("font-size: 15px; font-weight: bold; color: #212529; background: transparent;")
+        desc_label = QLabel(f"类型: {tool.tool_type} | 启动: {tool.launch_count} 次")
+        desc_label.setStyleSheet("font-size: 11px; color: #6c757d; background: transparent;")
+        info_layout.addWidget(name_label)
+        info_layout.addWidget(desc_label)
+        card_layout.addWidget(info_container, 1)
+
+        # Launch Button
+        launch_btn = QPushButton("🚀 启动")
+        launch_btn.setFixedSize(90, 36)
+        launch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        launch_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #667eea, stop:1 #764ba2);
+                color: white; border: none; border-radius: 18px; font-size: 13px; font-weight: bold;
+            }
+            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #764ba2, stop:1 #667eea); }
+        """)
+        launch_btn.clicked.connect(lambda: self.launch_tool_from_recent(tool, parent_dialog))
+        card_layout.addWidget(launch_btn)
+
+        # Double click to launch
+        card.mouseDoubleClickEvent = lambda event: self.launch_tool_from_recent(tool, parent_dialog)
+
+        return card
     
     def launch_tool_from_recent(self, tool, dialog):
         """从最近工具列表启动工具"""
-        try:
-            self._execute_tool(tool)
-            self.config.add_to_recent(tool.name)
-            self.config.save_config()
-            dialog.accept()
-            self.status_label.setText(f"已启动: {tool.name}")
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
-            self.status_label.setText(f"启动失败: {tool.name}")
+        if self._launch_and_update_stats(tool):
+            dialog.accept() # 启动成功后关闭对话框
     
     def clear_recent_history(self, dialog):
         """清空最近使用历史（美化确认弹窗按钮）"""
@@ -2061,49 +2580,6 @@ class MainWindow(QMainWindow):
             self.config.save_config()
             dialog.accept()
             QMessageBox.information(self, "清空完成", "最近使用历史已清空")
-    
-    def _execute_tool(self, tool):
-        """执行工具启动"""
-        import subprocess
-        import os
-        
-        if tool.tool_type == "exe":
-            # 可执行文件
-            if tool.args:
-                subprocess.Popen([tool.path] + tool.args.split())
-            else:
-                subprocess.Popen([tool.path])
-        elif tool.tool_type == "java":
-            # Java程序
-            cmd = ["java", "-jar", tool.path]
-            if tool.args:
-                cmd.extend(tool.args.split())
-            subprocess.Popen(cmd)
-        elif tool.tool_type == "python":
-            # Python脚本
-            cmd = ["python", tool.path]
-            if tool.args:
-                cmd.extend(tool.args.split())
-            subprocess.Popen(cmd)
-        elif tool.tool_type == "powershell":
-            # PowerShell脚本
-            cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
-            if tool.args:
-                cmd.extend(tool.args.split())
-            subprocess.Popen(cmd)
-        elif tool.tool_type == "url":
-            # 网页链接
-            import webbrowser
-            webbrowser.open(tool.path)
-        elif tool.tool_type == "folder":
-            # 文件夹
-            os.startfile(tool.path)
-        elif tool.tool_type == "batch":
-            # 批处理文件
-            subprocess.Popen([tool.path], shell=True)
-        else:
-            # 默认作为可执行文件处理
-            subprocess.Popen([tool.path])
     
     def show_favorites(self):
         """显示收藏工具"""
@@ -2188,69 +2664,7 @@ class MainWindow(QMainWindow):
     
     def launch_tool_card(self, tool):
         """启动工具卡片"""
-        try:
-            if tool.tool_type == "url":
-                # 网页类型
-                QDesktopServices.openUrl(QUrl(tool.path))
-            elif tool.tool_type == "folder":
-                # 文件夹类型
-                QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
-            elif tool.tool_type in ["java8_gui", "java11_gui"]:
-                # Java图形化应用
-                java_cmd = "java" if tool.tool_type == "java8_gui" else "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type in ["java8", "java11"]:
-                # Java命令行应用
-                java_cmd = "java" if tool.tool_type == "java8" else "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "python":
-                # Python脚本
-                cmd = ["python", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "powershell":
-                # PowerShell脚本
-                cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "batch":
-                # 批处理文件
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            else:
-                # 默认可执行文件
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            
-            # 更新启动次数和最后启动时间
-            tool.launch_count += 1
-            tool.last_launch = datetime.now().isoformat()
-            
-            # 添加到最近使用
-            self.config.add_to_recent(tool.name)
-            
-            # 保存配置并更新界面
-            self.config.save_config()
-            self.update_status_stats()
-            
-            # 更新状态栏
-            self.status_label.setText(f"已启动: {tool.name}")
-            
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"启动失败: {str(e)}")
-            self.status_label.setText(f"启动失败: {tool.name}")
+        self._launch_and_update_stats(tool)
     
     def show_context_menu(self, position):
         """显示工具右键菜单，优化：仅右键空白处显示新增工具"""

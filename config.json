@@ -10,8 +10,8 @@
       "color": "#000000",
       "description": "网络抓包分析工具",
       "icon_path": "E:/Penetration/RedTeam/TrafficProxyTools/Fiddler/App.ico",
-      "last_launch": null,
-      "launch_count": 1,
+      "last_launch": "2025-06-21T17:06:46.914112",
+      "launch_count": 4,
       "name": "Fiddler",
       "path": "E:/Penetration/RedTeam/TrafficProxyTools/Fiddler/Fiddler.exe",
       "subcategory": "",
@@ -49,8 +49,8 @@
       "color": "#000000",
       "description": "茶杯",
       "icon_path": "D:/SoftWare/Charles/charles.ico",
-      "last_launch": null,
-      "launch_count": 0,
+      "last_launch": "2025-06-21T16:32:18.813715",
+      "launch_count": 2,
       "name": "Charles",
       "path": "D:/SoftWare/Charles/Charles.exe",
       "subcategory": "",
@@ -62,8 +62,8 @@
       "color": "#000000",
       "description": "小黄鸟",
       "icon_path": "D:/SoftWare/Reqable/data/flutter_assets/assets/images/common/app_icon.ico",
-      "last_launch": "2025-06-21T14:31:57.137122",
-      "launch_count": 2,
+      "last_launch": "2025-06-21T17:43:24.762811",
+      "launch_count": 3,
       "name": "Reqable",
       "path": "D:/SoftWare/Reqable/Reqable.exe",
       "subcategory": "",
@@ -91,8 +91,8 @@
       "description": "py GUI",
       "icon_path": null,
       "color": "#000000",
-      "launch_count": 5,
-      "last_launch": "2025-06-21T14:41:25.274947",
+      "launch_count": 9,
+      "last_launch": "2025-06-21T17:08:20.483343",
       "args": ""
     },
     {
@@ -104,8 +104,8 @@
       "description": "",
       "icon_path": null,
       "color": "#000000",
-      "launch_count": 3,
-      "last_launch": "2025-06-21T14:41:10.221072",
+      "launch_count": 5,
+      "last_launch": "2025-06-21T17:43:35.189901",
       "args": ""
     },
     {
@@ -117,8 +117,8 @@
       "description": "",
       "icon_path": "E:/Penetration/RedTeam/Post-Exploition/C2/Cobalt_Strike_4.7/favicon.ico",
       "color": "#000000",
-      "launch_count": 1,
-      "last_launch": "2025-06-21T13:17:21.715819",
+      "launch_count": 5,
+      "last_launch": "2025-06-21T17:43:41.181213",
       "args": "-Dfile.encoding=UTF-8 -XX:ParallelGCThreads=4 -XX:+AggressiveHeap -XX:+UseParallelGC -Duser.language=en -jar cobaltstrike-client.jar %*"
     },
     {
@@ -130,8 +130,21 @@
       "description": "",
       "icon_path": "E:/Penetration/Others/ThemeTools/ICON/Icon/impacket.png",
       "color": "#000000",
-      "launch_count": 2,
-      "last_launch": "2025-06-21T14:44:21.981853",
+      "launch_count": 5,
+      "last_launch": "2025-06-21T17:43:41.949566",
+      "args": ""
+    },
+    {
+      "name": "AnotherRedisDesktopManager",
+      "path": "E:/Penetration/RedTeam/AuxiliaryTools/database-connect/AnotherRedisDesktopManager/AnotherRedisDesktopManager.exe",
+      "category": "辅助工具/数据库连接",
+      "subcategory": "",
+      "tool_type": "exe",
+      "description": "",
+      "icon_path": "E:/Penetration/Others/ThemeTools/ICON/Icon/Url/reddit.com.png",
+      "color": "#000000",
+      "launch_count": 1,
+      "last_launch": "2025-06-21T15:31:14.764382",
       "args": ""
     }
   ],
@@ -139,13 +152,27 @@
   "view_mode": "grid",
   "recent_tools": [
     "impacket-0.11.0",
-    "DeepSeekSelfTool",
+    "Cobalt_Strike_4.7",
     "BlueTeamToolsV2.16",
     "Reqable",
-    "StarCodeSecurity",
-    "Cobalt_Strike_4.7"
+    "DeepSeekSelfTool",
+    "Fiddler",
+    "Charles",
+    "AnotherRedisDesktopManager",
+    "StarCodeSecurity"
   ],
   "show_status_bar": "true",
   "auto_refresh": "true",
-  "search_history": []
+  "search_history": [
+    "yak",
+    "wiresh",
+    "wires",
+    "wire",
+    "test14",
+    "test13",
+    "test12",
+    "test11",
+    "test10",
+    "test9"
+  ]
 }

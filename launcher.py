@@ -42,6 +42,69 @@ logging.basicConfig(
     ]
 )
 
+# ========== 全局唯一美化弹窗 ConfirmDialog ==========
+class ConfirmDialog(QDialog):
+    def __init__(self, parent=None, title="提示", content="操作成功", icon="ℹ️", yes_text="确定", no_text=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setMinimumSize(380, 220)
+        card = QWidget(self)
+        card.setStyleSheet("""
+            QWidget {
+                background: #fff;
+                border-radius: 20px;
+                border: none;
+            }
+        """)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(card)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
+        # 标题栏
+        title_bar = QWidget()
+        title_bar.setFixedHeight(54)
+        title_bar.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7); border-top-left-radius: 20px; border-top-right-radius: 20px;")
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(22, 0, 18, 0)
+        title_icon = QLabel(f"<span style='font-size:22px;'>{icon}</span>")
+        title_icon.setStyleSheet("color: white;")
+        title_layout.addWidget(title_icon)
+        title_text = QLabel(title)
+        title_text.setStyleSheet("font-size: 17px; font-weight: bold; color: white; margin-left: 8px;")
+        title_layout.addWidget(title_text)
+        title_layout.addStretch()
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(32, 32)
+        close_btn.setStyleSheet("background: transparent; color: white; border: none; font-size: 20px;")
+        close_btn.clicked.connect(self.reject)
+        title_layout.addWidget(close_btn)
+        card_layout.addWidget(title_bar)
+        # 内容
+        content_label = QLabel(content)
+        content_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_label.setStyleSheet("font-size: 16px; color: #222; font-weight: bold; padding: 36px 0 24px 0;")
+        card_layout.addWidget(content_label)
+        # 按钮
+        btn_layout = QHBoxLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 18)
+        btn_layout.addStretch()
+        yes_btn = QPushButton(yes_text)
+        yes_btn.setFixedSize(110, 44)
+        yes_btn.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7); color: white; border-radius: 22px; font-size: 16px; font-weight: bold; margin-right: 18px;")
+        yes_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(yes_btn)
+        if no_text:
+            no_btn = QPushButton(no_text)
+            no_btn.setFixedSize(110, 44)
+            no_btn.setStyleSheet("background: #f2f3f5; color: #495057; border-radius: 22px; font-size: 16px; font-weight: bold;")
+            no_btn.clicked.connect(self.reject)
+            btn_layout.addWidget(no_btn)
+        btn_layout.addStretch()
+        card_layout.addLayout(btn_layout)
+
 class Config:
     """配置管理类"""
     def __init__(self):
@@ -1169,7 +1232,8 @@ class ToolCard(QWidget):
         from PyQt6.QtWidgets import QApplication, QMessageBox
         clipboard = QApplication.clipboard()
         clipboard.setText(self.tool.path)
-        QMessageBox.information(self, "复制成功", f"已复制路径到剪贴板:\n{self.tool.path}")
+        dlg = ConfirmDialog(self, title="复制成功", content=f"已复制路径到剪贴板:\n{self.tool.path}", icon="📋", yes_text="确定", no_text=None)
+        dlg.exec()
 
     def copy_tool_info(self):
         """复制工具信息到剪贴板"""
@@ -1184,61 +1248,13 @@ class ToolCard(QWidget):
         
         clipboard = QApplication.clipboard()
         clipboard.setText(info)
-        QMessageBox.information(self, "复制成功", "已复制工具信息到剪贴板")
+        dlg = ConfirmDialog(self, title="复制成功", content="已复制工具信息到剪贴板", icon="📋", yes_text="确定", no_text=None)
+        dlg.exec()
 
     def delete_tool(self):
         """删除工具"""
-        from PyQt6.QtWidgets import QMessageBox
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("⚠️ 确认删除")
-        msg_box.setText(f"<span style='font-size:17px;font-weight:bold;'>确定要删除工具 '<span style='color:#43e97b'>{self.tool.name}</span>' 吗？</span>")
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        yes_btn = msg_box.addButton("✔️ 是，删除", QMessageBox.ButtonRole.YesRole)
-        no_btn = msg_box.addButton("取消", QMessageBox.ButtonRole.NoRole)
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background: #f8f9fa;
-                border-radius: 18px;
-                padding: 18px 24px;
-            }
-            QLabel {
-                color: #222;
-                font-size: 17px;
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
-                font-weight: bold;
-            }
-            QPushButton {
-                min-width: 120px;
-                min-height: 44px;
-                margin: 0 18px;
-                border-radius: 22px;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 8px 24px;
-            }
-            QPushButton:enabled {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
-                color: #fff;
-            }
-            QPushButton:enabled:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #38f9d7, stop:1 #43e97b);
-                color: #fff;
-            }
-            QPushButton:disabled {
-                background: #e0e0e0;
-                color: #b0b0b0;
-            }
-            QPushButton[role="NoRole"] {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #b0bec5, stop:1 #90a4ae);
-                color: #fff;
-            }
-            QPushButton[role="NoRole"]:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #90a4ae, stop:1 #b0bec5);
-                color: #fff;
-            }
-        """)
-        msg_box.exec()
-        if msg_box.clickedButton() == yes_btn:
+        dlg = ConfirmDialog(self, title="确认删除", content=f"确定要删除工具 '<span style='color:#43e97b'>{self.tool.name}</span>' 吗？", icon="🗑️", yes_text="是，删除", no_text="取消")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             # 获取主窗口实例
             main_window = self.window()
             if hasattr(main_window, 'delete_tool_card'):
@@ -1404,10 +1420,10 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 800)
 
         # 分页参数
-        self.tools_per_page = 20
-        self.current_page = 1
-        self.total_pages = 1
-        self.current_tools = []  # 当前显示的工具列表
+        # self.tools_per_page = 20
+        # self.current_page = 1
+        # self.total_pages = 1
+        # self.current_tools = []  # 当前显示的工具列表
 
         # 创建主窗口部件
         main_widget = QWidget()
@@ -1575,6 +1591,13 @@ class MainWindow(QMainWindow):
         self.tools_vbox.setSpacing(16)
         self.tools_area.setWidget(self.tools_container)
         self.content_splitter.addWidget(self.tools_area)
+
+        # 确保启动时右侧内容区正常显示
+        self.refresh_outline_and_tools()
+        
+        # 为主窗口添加右键菜单支持
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
 
     def toggle_outline_panel(self):
         """切换目录大纲面板的显示/隐藏"""
@@ -2332,35 +2355,34 @@ QTreeWidget::branch:open:has-children:has-siblings {
     
     def update_tools_list(self, category=None):
         """更新工具列表，支持分页和全部工具展示"""
-        self.tools_vbox.clear()
-        
+        # self.tools_vbox.clear()
         # 获取所有需要展示的工具
-        if category:
-            tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category') == category]
-        else:
-            tools = [Tool.from_dict(t) for t in self.config.tools]
-        
-        self.current_tools = tools
-        
+        # if category:
+        #     tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category') == category]
+        # else:
+        #     tools = [Tool.from_dict(t) for t in self.config.tools]
+        # self.current_tools = tools
         # 分页计算
-        total = len(tools)
-        self.total_pages = max(1, (total + self.tools_per_page - 1) // self.tools_per_page)
-        self.current_page = min(self.current_page, self.total_pages)
-        start = (self.current_page - 1) * self.tools_per_page
-        end = start + self.tools_per_page
-        page_tools = tools[start:end]
-        
+        # total = len(tools)
+        # self.total_pages = max(1, (total + self.tools_per_page - 1) // self.tools_per_page)
+        # self.current_page = min(self.current_page, self.total_pages)
+        # start = (self.current_page - 1) * self.tools_per_page
+        # end = start + self.tools_per_page
+        # page_tools = tools[start:end]
         # 显示当前页的工具
-        for tool in page_tools:
-            self._create_tool_item(tool)
-        
+        # for tool in page_tools:
+        #     self._create_tool_item(tool)
         # 更新分页控件
-        self.page_label.setText(f"第 {self.current_page} / {self.total_pages} 页   共 {total} 个工具")
-        self.prev_btn.setEnabled(self.current_page > 1)
-        self.next_btn.setEnabled(self.current_page < self.total_pages)
-        
+        # self.page_label.setText(f"第 {self.current_page} / {self.total_pages} 页   共 {total} 个工具")
+        # self.prev_btn.setEnabled(self.current_page > 1)
+        # self.next_btn.setEnabled(self.current_page < self.total_pages)
         # 确保显示工具列表页面
-        self.right_stack.setCurrentWidget(self.tools_page)
+        # self.right_stack.setCurrentWidget(self.tools_page)
+        pass
+    def prev_page(self):
+        pass
+    def next_page(self):
+        pass
     
     def _create_tool_item(self, tool):
         """创建自定义工具卡片"""
@@ -4098,38 +4120,8 @@ AppLauncher 工具统计报告
     
     def clear_recent_history(self, dialog):
         """清空最近使用历史（美化确认弹窗按钮）"""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("确认清空")
-        msg_box.setText("确定要清空最近使用历史吗？")
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        yes_btn = msg_box.addButton("是", QMessageBox.ButtonRole.YesRole)
-        no_btn = msg_box.addButton("否", QMessageBox.ButtonRole.NoRole)
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background: #fff;
-                border-radius: 12px;
-            }
-            QLabel {
-                color: #222;
-                font-size: 15px;
-                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1da1f2, stop:1 #0d8bd9);
-                color: #fff;
-                border-radius: 8px;
-                font-size: 15px;
-                font-weight: bold;
-                min-width: 80px;
-                min-height: 32px;
-                margin: 0 8px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0d8bd9, stop:1 #1da1f2);
-            }
-        """)
-        msg_box.exec()
-        if msg_box.clickedButton() == yes_btn:
+        dlg = ConfirmDialog(self, title="确认清空", content="确定要清空最近使用历史吗？", icon="🗑️", yes_text="是", no_text="否")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             self.config.recent_tools.clear()
             self.config.save_config()
             dialog.accept()
@@ -4147,15 +4139,6 @@ AppLauncher 工具统计报告
         
         QMessageBox.information(self, "收藏工具", favorites_text)
     
-    def prev_page(self):
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.update_tools_list()
-    def next_page(self):
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            self.update_tools_list()
-
     def search_tools(self, text):
         """搜索工具(此方法已废弃,逻辑由多线程工作者替代)"""
         pass
@@ -4172,32 +4155,75 @@ AppLauncher 工具统计报告
         self.startToolLaunch.emit(tool, True)
     
     def show_context_menu(self, position):
-        """显示工具右键菜单，优化：仅右键空白处显示新增工具"""
-        item = self.tools_vbox.itemAt(position)
-        menu = QMenu()
-        if item is not None and item.data(Qt.ItemDataRole.UserRole):
-            tool = item.data(Qt.ItemDataRole.UserRole)
-            launch_action = QAction("启动", self)
-            launch_action.triggered.connect(lambda: self.launch_tool(item))
-            menu.addAction(launch_action)
-            edit_action = QAction("编辑", self)
-            edit_action.triggered.connect(lambda: self.edit_tool(item))
-            menu.addAction(edit_action)
-            open_folder_action = QAction("打开所在文件夹", self)
-            open_folder_action.triggered.connect(lambda: self.open_tool_folder(item))
-            menu.addAction(open_folder_action)
-            open_cmd_action = QAction("打开命令行", self)
-            open_cmd_action.triggered.connect(lambda: self.open_tool_cmd(item))
-            menu.addAction(open_cmd_action)
-            delete_action = QAction("删除", self)
-            delete_action.triggered.connect(lambda: self.delete_tool(item))
-            menu.addAction(delete_action)
+        """显示工具右键菜单，支持卡片视图和空白区域新增工具"""
+        # 获取点击位置的widget
+        widget = self.childAt(position)
+        
+        # 查找是否点击了ToolCard
+        tool_card = None
+        while widget and not isinstance(widget, ToolCard):
+            widget = widget.parent()
+        if widget:
+            tool_card = widget
+        
+        menu = QMenu(self)
+        
+        if tool_card:
+            # 点击了工具卡片，显示工具相关菜单
+            tool = tool_card.tool
+            
+            # 启动工具
+            launch_action = menu.addAction("🚀 启动工具")
+            launch_action.triggered.connect(tool_card.launch_tool)
+            
+            menu.addSeparator()
+            
+            # 编辑工具
+            edit_action = menu.addAction("✏️ 编辑工具")
+            edit_action.triggered.connect(tool_card.edit_tool)
+            
+            # 删除工具
+            delete_action = menu.addAction("🗑️ 删除工具")
+            delete_action.triggered.connect(tool_card.delete_tool)
+            
+            menu.addSeparator()
+            
+            # 打开工具文件夹
+            open_folder_action = menu.addAction("📁 打开文件夹")
+            open_folder_action.triggered.connect(tool_card.open_folder)
+            
+            # 打开命令行
+            open_cmd_action = menu.addAction("💻 打开命令行")
+            open_cmd_action.triggered.connect(tool_card.open_command_line)
+            
+            # 复制路径
+            copy_path_action = menu.addAction("📋 复制路径")
+            copy_path_action.triggered.connect(tool_card.copy_path)
+            
+            # 复制工具信息
+            copy_info_action = menu.addAction("📄 复制工具信息")
+            copy_info_action.triggered.connect(tool_card.copy_tool_info)
+            
         else:
-            # 仅右键空白处显示新增工具
-            add_action = QAction("新增工具", self)
-            add_action.triggered.connect(self.add_tool)
-            menu.addAction(add_action)
-        menu.exec(self.tools_vbox.viewport().mapToGlobal(position))
+            # 点击了空白区域，显示新增工具等选项
+            add_tool_action = menu.addAction("➕ 新增工具")
+            add_tool_action.triggered.connect(self.add_tool)
+            
+            menu.addSeparator()
+            
+            # 刷新工具列表
+            refresh_action = menu.addAction("🔄 刷新列表")
+            refresh_action.triggered.connect(self.refresh_outline_and_tools)
+            
+            # 显示统计信息
+            stats_action = menu.addAction("📊 显示统计")
+            stats_action.triggered.connect(self.show_total_tools)
+            
+            # 显示最近工具
+            recent_action = menu.addAction("⏰ 最近使用")
+            recent_action.triggered.connect(self.show_recent_tools)
+        
+        menu.exec(self.mapToGlobal(position))
 
     def edit_tool(self, item):
         """编辑工具，支持修改分类，保存后自动刷新大纲"""

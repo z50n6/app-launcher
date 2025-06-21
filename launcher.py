@@ -1680,8 +1680,8 @@ QTreeWidget::item {
     margin: 2px 4px;
 }
 QTreeWidget::item:selected {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #43e97b, stop:1 #38f9d7);
-    color: white;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #a8ffdf, stop:1 #d2fff3);
+    color: #222;
     border: none;
 }
 QTreeWidget::item:hover {

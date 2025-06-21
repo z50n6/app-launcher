@@ -719,58 +719,62 @@ class MainWindow(QMainWindow):
             assist_layout.addWidget(self.assist_content)
             self.right_layout.addWidget(assist_container)
             # 便于后续扩展tab
-            self.current_assist_tab = 'shellgen'
+            self.current_assist_tab = 'java_encode'
         else:
             self.btn_safe_tools.setChecked(False)
             self.btn_code_tools.setChecked(False)
             self.btn_assist_tools.setChecked(False)
 
     def refresh_outline_and_tools(self):
-        """根据所有工具的分类字段动态生成树形大纲，并显示所有工具"""
+        """根据所有工具的分类字段动态生成树形大纲（支持多级），并显示所有工具"""
         self.outline_tree.clear()
-        # 构建分类树结构
+        # 构建支持多级的分类树结构
         tree_dict = {}
         for t in self.config.tools:
-            cat = t.get('category', '')
-            if '/' in cat:
-                first, second = cat.split('/', 1)
-            else:
-                first, second = cat, ''
-            if first not in tree_dict:
-                tree_dict[first] = {}
-            if second:
-                tree_dict[first][second] = tree_dict[first].get(second, 0) + 1
-        # 添加到QTreeWidget
-        for first in sorted(tree_dict.keys()):
-            first_item = QTreeWidgetItem([first])
-            has_child = False
-            for second in sorted(tree_dict[first].keys()):
-                second_item = QTreeWidgetItem([second])
-                first_item.addChild(second_item)
-                has_child = True
-            self.outline_tree.addTopLevelItem(first_item)
-            if has_child:
-                first_item.setExpanded(True)
+            # 使用strip()去除前后空格，并过滤掉空部分
+            parts = [p.strip() for p in t.get('category', '').split('/') if p.strip()]
+            if not parts:
+                continue
+            
+            current_level = tree_dict
+            for part in parts:
+                current_level = current_level.setdefault(part, {})
+
+        # 递归函数，用于将字典树添加到QTreeWidget
+        def add_items_to_tree(parent_item, children):
+            for name, sub_children in sorted(children.items()):
+                child_item = QTreeWidgetItem([name])
+                parent_item.addChild(child_item)
+                if sub_children:
+                    add_items_to_tree(child_item, sub_children)
+
+        # 遍历顶层分类并添加到树中
+        for name, children in sorted(tree_dict.items()):
+            top_level_item = QTreeWidgetItem([name])
+            self.outline_tree.addTopLevelItem(top_level_item)
+            if children:
+                add_items_to_tree(top_level_item, children)
+        
+        self.outline_tree.expandAll()
+        
         # 默认显示所有工具
         self.update_tools_list_for_outline()
 
     def on_outline_clicked(self, item):
-        """点击树形大纲分类，显示对应工具"""
+        """点击树形大纲分类，显示对应工具（支持多级）"""
         # 获取完整分类路径
         path = []
         cur = item
         while cur:
             path.insert(0, cur.text(0))
             cur = cur.parent()
-        if len(path) == 1:
-            # 一级分类
-            cat = path[0]
-            tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category', '').split('/')[0] == cat]
-        elif len(path) == 2:
-            cat = '/'.join(path)
-            tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category', '') == cat]
-        else:
-            tools = [Tool.from_dict(t) for t in self.config.tools]
+        
+        # 拼接成前缀，用于匹配
+        cat_prefix = '/'.join(path)
+        
+        # 筛选出所有分类以该前缀开头的工具
+        tools = [Tool.from_dict(t) for t in self.config.tools if t.get('category', '').startswith(cat_prefix)]
+        
         self.show_tools_list(tools)
 
     def update_tools_list_for_outline(self):
@@ -788,19 +792,7 @@ class MainWindow(QMainWindow):
                 icon = QIcon(tool.icon_path)
                 item.setIcon(icon)
             else:
-                emoji_map = {
-                    "exe": "⚙️",
-                    "java8_gui": "☕",
-                    "java11_gui": "☕",
-                    "java8": "☕",
-                    "java11": "☕",
-                    "python": "🐍",
-                    "powershell": "💻",
-                    "batch": "📜",
-                    "url": "🌐",
-                    "folder": "📁",
-                }
-                emoji = emoji_map.get(tool.tool_type, "🛠️")
+                emoji = self._get_tool_icon(tool)
                 item.setText(f"{emoji}  {tool.name}")
             # 始终显示名称，名称加粗，区域更大
             if not item.text():
@@ -884,6 +876,22 @@ class MainWindow(QMainWindow):
         modern_dark_action = QAction("🌙 现代深色", self)
         modern_dark_action.triggered.connect(partial(self.set_theme, "modern_dark"))
         theme_menu.addAction(modern_dark_action)
+        
+        dracula_action = QAction("🧛 Dracula", self)
+        dracula_action.triggered.connect(partial(self.set_theme, "dracula"))
+        theme_menu.addAction(dracula_action)
+        
+        solarized_light_action = QAction("☀️ Solarized Light", self)
+        solarized_light_action.triggered.connect(partial(self.set_theme, "solarized_light"))
+        theme_menu.addAction(solarized_light_action)
+        
+        solarized_dark_action = QAction("🌑 Solarized Dark", self)
+        solarized_dark_action.triggered.connect(partial(self.set_theme, "solarized_dark"))
+        theme_menu.addAction(solarized_dark_action)
+        
+        nord_action = QAction("❄️ Nord", self)
+        nord_action.triggered.connect(partial(self.set_theme, "nord"))
+        theme_menu.addAction(nord_action)
         
         theme_menu.addSeparator()
         
@@ -1208,8 +1216,8 @@ class MainWindow(QMainWindow):
             "exe": "⚙️",
             "java8_gui": "☕",
             "java11_gui": "☕",
-            "java8": "☕",
-            "java11": "☕",
+            "java8": "👨‍💻",
+            "java11": "👨‍💻",
             "python": "🐍",
             "powershell": "💻",
             "batch": "📜",
@@ -1217,7 +1225,7 @@ class MainWindow(QMainWindow):
             "folder": "📁",
             "placeholder": "📂"
         }
-        return icon_map.get(tool.tool_type, "🔧")
+        return icon_map.get(tool.tool_type, "🚀")
     
     def _get_tool_status(self, tool):
         """获取工具状态"""
@@ -1286,38 +1294,42 @@ class MainWindow(QMainWindow):
                 QDesktopServices.openUrl(QUrl(tool.path))
             elif tool.tool_type == "folder":
                 QDesktopServices.openUrl(QUrl.fromLocalFile(tool.path))
-            elif tool.tool_type in ["java8_gui", "java11_gui"]:
-                java_cmd = "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type in ["java8", "java11"]:
-                java_cmd = "java"
-                cmd = [java_cmd, "-jar", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "python":
-                cmd = ["python", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "powershell":
-                cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            elif tool.tool_type == "batch":
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
-            else:  # 默认为 exe
-                cmd = [tool.path]
-                if tool.args:
-                    cmd.extend(tool.args.split())
-                subprocess.Popen(cmd)
+            else:
+                # For all file-based tools, set the working directory
+                tool_dir = os.path.dirname(tool.path)
+
+                if tool.tool_type in ["java8_gui", "java11_gui"]:
+                    java_cmd = "java"
+                    cmd = [java_cmd, "-jar", tool.path]
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
+                elif tool.tool_type in ["java8", "java11"]:
+                    java_cmd = "java"
+                    cmd = [java_cmd] # Let user control all args
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
+                elif tool.tool_type == "python":
+                    cmd = ["python", tool.path]
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
+                elif tool.tool_type == "powershell":
+                    cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", tool.path]
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
+                elif tool.tool_type == "batch":
+                    cmd = [tool.path]
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
+                else:  # 默认为 exe
+                    cmd = [tool.path]
+                    if tool.args:
+                        cmd.extend(tool.args.split())
+                    subprocess.Popen(cmd, cwd=tool_dir)
             
             # --- 2. 更新统计数据（直接在原始字典上操作） ---
             for tool_dict in self.config.tools:
@@ -1560,6 +1572,178 @@ class MainWindow(QMainWindow):
             QMenuBar::item:selected { background: #333333; border-radius: 4px; }
             QMenu { background: #2d2d2d; color: #e0e0e0; border: 1px solid #404040; border-radius: 8px; padding: 4px; }
             QMenu::item:selected { background: #333333; border-radius: 4px; }
+            """
+        elif theme == "dracula":
+            qss = """
+            QMainWindow { background: #282a36; }
+            QWidget { background: #282a36; color: #f8f8f2; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
+            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
+                background: #44475a; color: #f8f8f2; border: 1px solid #6272a4; border-radius: 8px; 
+                padding: 8px; font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
+                border: 2px solid #bd93f9; background: #44475a; 
+            }
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: #bd93f9; 
+                color: #f8f8f2; 
+                border-radius: 8px; 
+                padding: 10px 16px; 
+                font-weight: bold; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
+            }
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: #ff79c6; 
+            }
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #ff55b8; 
+            }
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #6272a4;
+                color: #44475a;
+            }
+            QDialog, QMessageBox, QInputDialog {
+                background: #282a36;
+                border-radius: 14px;
+            }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QMenuBar { background: #282a36; color: #f8f8f2; border-bottom: 1px solid #44475a; }
+            QMenuBar::item:selected { background: #44475a; border-radius: 4px; }
+            QMenu { background: #44475a; color: #f8f8f2; border: 1px solid #6272a4; border-radius: 8px; padding: 4px; }
+            QMenu::item:selected { background: #6272a4; border-radius: 4px; }
+            """
+        elif theme == "solarized_light":
+            qss = """
+            QMainWindow { background: #fdf6e3; }
+            QWidget { background: #fdf6e3; color: #657b83; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
+            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
+                background: #eee8d5; color: #586e75; border: 1px solid #93a1a1; border-radius: 8px; 
+                padding: 8px; font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
+                border: 2px solid #268bd2; background: #fdf6e3; 
+            }
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: #2aa198; 
+                color: #fdf6e3; 
+                border-radius: 8px; 
+                padding: 10px 16px; 
+                font-weight: bold; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
+            }
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: #268bd2; 
+            }
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #b58900; 
+            }
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #eee8d5;
+                color: #93a1a1;
+            }
+            QDialog, QMessageBox, QInputDialog {
+                background: #fdf6e3;
+                border-radius: 14px;
+            }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QMenuBar { background: #fdf6e3; color: #657b83; border-bottom: 1px solid #eee8d5; }
+            QMenuBar::item:selected { background: #eee8d5; border-radius: 4px; }
+            QMenu { background: #eee8d5; color: #586e75; border: 1px solid #93a1a1; border-radius: 8px; padding: 4px; }
+            QMenu::item:selected { background: #fdf6e3; border-radius: 4px; }
+            """
+        elif theme == "solarized_dark":
+            qss = """
+            QMainWindow { background: #002b36; }
+            QWidget { background: #002b36; color: #839496; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
+            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
+                background: #073642; color: #93a1a1; border: 1px solid #586e75; border-radius: 8px; 
+                padding: 8px; font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
+                border: 2px solid #268bd2; background: #073642; 
+            }
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: #2aa198; 
+                color: #002b36; 
+                border-radius: 8px; 
+                padding: 10px 16px; 
+                font-weight: bold; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
+            }
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: #268bd2; 
+            }
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #b58900; 
+            }
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #073642;
+                color: #586e75;
+            }
+            QDialog, QMessageBox, QInputDialog {
+                background: #002b36;
+                border-radius: 14px;
+            }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QMenuBar { background: #002b36; color: #839496; border-bottom: 1px solid #073642; }
+            QMenuBar::item:selected { background: #073642; border-radius: 4px; }
+            QMenu { background: #073642; color: #93a1a1; border: 1px solid #586e75; border-radius: 8px; padding: 4px; }
+            QMenu::item:selected { background: #586e75; border-radius: 4px; }
+            """
+        elif theme == "nord":
+            qss = """
+            QMainWindow { background: #2e3440; }
+            QWidget { background: #2e3440; color: #d8dee9; font-family: 'Microsoft YaHei', '微软雅黑', Arial; }
+            QLineEdit, QTextEdit, QComboBox, QMenu, QListWidget, QTreeWidget { 
+                background: #3b4252; color: #eceff4; border: 1px solid #4c566a; border-radius: 8px; 
+                padding: 8px; font-size: 13px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus { 
+                border: 2px solid #88c0d0; background: #434c5e; 
+            }
+            QPushButton, QDialogButtonBox QPushButton, QMessageBox QPushButton { 
+                background: #81a1c1; 
+                color: #2e3440; 
+                border-radius: 8px; 
+                padding: 10px 16px; 
+                font-weight: bold; 
+                font-size: 13px;
+                border: none;
+                min-width: 80px;
+            }
+            QPushButton:hover, QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover { 
+                background: #88c0d0; 
+            }
+            QPushButton:pressed, QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed { 
+                background: #5e81ac; 
+            }
+            QPushButton:disabled, QDialogButtonBox QPushButton:disabled, QMessageBox QPushButton:disabled {
+                background: #4c566a;
+                color: #3b4252;
+            }
+            QDialog, QMessageBox, QInputDialog {
+                background: #2e3440;
+                border-radius: 14px;
+            }
+            QLabel, QTextBrowser {
+                font-family: 'Microsoft YaHei', '微软雅黑', Arial;
+            }
+            QMenuBar { background: #2e3440; color: #d8dee9; border-bottom: 1px solid #3b4252; }
+            QMenuBar::item:selected { background: #434c5e; border-radius: 4px; }
+            QMenu { background: #3b4252; color: #eceff4; border: 1px solid #4c566a; border-radius: 8px; padding: 4px; }
+            QMenu::item:selected { background: #4c566a; border-radius: 4px; }
             """
         else:
             qss = ""
@@ -2606,62 +2790,34 @@ AppLauncher 工具统计报告
         """搜索工具"""
         self.tools_list.clear()
         
+        text = text.strip()
         if not text:
             # 如果没有搜索文本，显示当前选中分类的工具
-            current_item = self.category_tree.currentItem()
+            current_item = self.outline_tree.currentItem()
             if current_item:
-                category_name = current_item.text(0)
-                if category_name != "编码与解码":
-                    self.update_tools_list(category_name)
+                self.on_outline_clicked(current_item)
+            else:
+                # 如果没有选中项，显示所有工具
+                self.update_tools_list_for_outline()
             return
         
         # 搜索所有工具
         for tool_data in self.config.tools:
             tool = Tool.from_dict(tool_data)
+            # 搜索范围更广
             if (text.lower() in tool.name.lower() or
                 text.lower() in tool.description.lower() or
-                text.lower() in tool.category.lower() or
-                text.lower() in tool.subcategory.lower()):
+                text.lower() in tool.category.lower()):
                 
                 # 创建搜索结果的工具项
-                self._create_search_tool_item(tool)
+                self.show_tools_list([tool]) # 复用显示逻辑，但只显示这一个
     
     def _create_search_tool_item(self, tool):
         """创建搜索结果的工具项"""
-        tool_item = QListWidgetItem()
-        
-        # 设置工具名称和图标
-        if tool.icon_path and os.path.exists(tool.icon_path):
-            # 使用配置的图标
-            icon = QIcon(tool.icon_path)
-            tool_item.setIcon(icon)
-            tool_item.setText(tool.name)
-        else:
-            # 使用默认图标
-            default_icon = self._get_tool_icon(tool)
-            tool_item.setText(f"{default_icon} {tool.name}")
-        
-        # 设置字体
-        font = QFont("Microsoft YaHei", 11, QFont.Weight.Normal)
-        tool_item.setFont(font)
-        
-        # 设置数据
-        tool_item.setData(Qt.ItemDataRole.UserRole, tool)
-        
-        # 设置工具提示
-        tooltip_text = f"工具名称: {tool.name}\n"
-        tooltip_text += f"工具类型: {tool.tool_type}\n"
-        tooltip_text += f"启动次数: {tool.launch_count}\n"
-        if tool.description:
-            tooltip_text += f"描述: {tool.description}\n"
-        if tool.last_launch:
-            tooltip_text += f"最后启动: {tool.last_launch[:19]}"
-        
-        tool_item.setToolTip(tooltip_text)
-        
-        # 添加到列表
-        self.tools_list.addItem(tool_item)
-    
+        item = self.tools_list.findItems(tool.name, Qt.MatchFlag.MatchExactly)
+        if item:
+             self.show_tools_list([tool])
+
     def launch_tool_card(self, tool):
         """启动工具卡片"""
         self._launch_and_update_stats(tool)

@@ -68,11 +68,67 @@
       "path": "D:/SoftWare/Reqable/Reqable.exe",
       "subcategory": "",
       "tool_type": "exe"
+    },
+    {
+      "name": "StarCodeSecurity",
+      "path": "E:/Penetration/RedTeam/Code_Audit/StarCodeSecurity/StarCodeSecurity.jar",
+      "category": "代码审计/综合工具",
+      "subcategory": "",
+      "tool_type": "java8",
+      "description": "",
+      "icon_path": null,
+      "color": "#000000",
+      "launch_count": 4,
+      "last_launch": "2025-06-21T13:11:03.351843",
+      "args": "-javaagent:StarCodeSecurity.jar  -Dfile.encoding=utf-8 -jar StarCodeSecurity.jar"
+    },
+    {
+      "name": "DeepSeekSelfTool",
+      "path": "E:/Penetration/RedTeam/ComprehensiveTools/DeepSeekSelfTool/DeepSeekSelfTool.py",
+      "category": "R/综合工具",
+      "subcategory": "",
+      "tool_type": "python",
+      "description": "py GUI",
+      "icon_path": null,
+      "color": "#000000",
+      "launch_count": 1,
+      "last_launch": "2025-06-21T13:13:31.683814",
+      "args": ""
+    },
+    {
+      "name": "BlueTeamToolsV2.16",
+      "path": "E:/Penetration/BlueTeam/AssistiveTools/BlueTeamToolsV2.16/BlueTeamToolsV2.16.jar",
+      "category": "B/综合工具",
+      "subcategory": "",
+      "tool_type": "java8_gui",
+      "description": "",
+      "icon_path": null,
+      "color": "#000000",
+      "launch_count": 1,
+      "last_launch": "2025-06-21T13:15:18.560073",
+      "args": ""
+    },
+    {
+      "name": "Cobalt_Strike_4.7",
+      "path": "E:/Penetration/RedTeam/Post-Exploition/C2/Cobalt_Strike_4.7/cobaltstrike-client.jar",
+      "category": "R/后渗透/C2",
+      "subcategory": "",
+      "tool_type": "java8",
+      "description": "",
+      "icon_path": "E:/Penetration/RedTeam/Post-Exploition/C2/Cobalt_Strike_4.7/favicon.ico",
+      "color": "#000000",
+      "launch_count": 1,
+      "last_launch": "2025-06-21T13:17:21.715819",
+      "args": "-Dfile.encoding=UTF-8 -XX:ParallelGCThreads=4 -XX:+AggressiveHeap -XX:+UseParallelGC -Duser.language=en -jar cobaltstrike-client.jar %*"
     }
   ],
   "theme": "modern_light",
   "view_mode": "grid",
   "recent_tools": [
+    "Cobalt_Strike_4.7",
+    "BlueTeamToolsV2.16",
+    "DeepSeekSelfTool",
+    "StarCodeSecurity",
     "Reqable"
   ],
   "show_status_bar": "true",

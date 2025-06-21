@@ -2,49 +2,105 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>命令编码工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Java命令编码工具 - 支持多种编码格式的命令转换">
+    <title>Java命令编码工具</title>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="card-group">
-            <div class="input-title"><span class="emoji">👉</span>输入命令</div>
-            <div style="margin-bottom: 14px;">
-                <div id="custom-cmdtype-select" class="custom-select">
-                    <button type="button" id="cmdTypeSelectBtn">Bash</button>
-                    <ul id="cmdTypeSelectList" class="select-list" style="display:none;">
-                        <li data-value="bash">Bash</li>
-                        <li data-value="sh">Sh</li>
-                        <li data-value="powershell">PowerShell</li>
-                        <li data-value="python">Python</li>
-                        <li data-value="perl">Perl</li>
+    <main class="container">
+        <header class="app-header">
+            <h1 class="app-title">
+                <span class="emoji">⚡</span>
+                Java命令编码工具
+            </h1>
+            <p class="app-description">支持多种编码格式的命令转换和优化</p>
+        </header>
+
+        <section class="card-group">
+            <label class="input-title" for="inputCmd">
+                <span class="emoji">👉</span>输入命令
+            </label>
+            <div class="control-group">
+                <div class="custom-select" id="custom-cmdtype-select">
+                    <button type="button" id="cmdTypeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="select-text">Bash</span>
+                        <span class="select-arrow">▼</span>
+                    </button>
+                    <ul id="cmdTypeSelectList" class="select-list" role="listbox" aria-label="选择命令类型">
+                        <li role="option" data-value="bash" aria-selected="true">Bash</li>
+                        <li role="option" data-value="sh" aria-selected="false">Sh</li>
+                        <li role="option" data-value="powershell" aria-selected="false">PowerShell</li>
+                        <li role="option" data-value="python" aria-selected="false">Python</li>
+                        <li role="option" data-value="perl" aria-selected="false">Perl</li>
+                        <li role="option" data-value="cmd" aria-selected="false">CMD</li>
                     </ul>
                 </div>
             </div>
-            <textarea id="inputCmd" rows="2" placeholder="请输入要编码的命令"></textarea>
-        </div>
-        <div class="card-group">
-            <div class="input-title"><span class="emoji">🚀</span>输出命令</div>
-            <textarea id="outputCmd" rows="2" readonly></textarea>
-        </div>
-        <div class="card-group">
-            <div class="input-title"><span class="emoji">🚀</span>编码结果</div>
-            <div style="margin-bottom: 14px;">
-                <div id="custom-encode-select" class="custom-select">
-                    <button type="button" id="encodeSelectBtn">None</button>
-                    <ul id="encodeSelectList" class="select-list" style="display:none;">
-                        <li data-value="none">None</li>
-                        <li data-value="url">URL编码</li>
-                        <li data-value="double_url">双URL编码</li>
-                        <li data-value="base64">Base64编码</li>
+            <textarea 
+                id="inputCmd" 
+                rows="3" 
+                placeholder="请输入要编码的命令，例如: whoami"
+                aria-label="输入命令"
+            ></textarea>
+        </section>
+
+        <section class="card-group">
+            <label class="input-title" for="outputCmd">
+                <span class="emoji">🚀</span>输出命令
+            </label>
+            <textarea 
+                id="outputCmd" 
+                rows="3" 
+                readonly 
+                aria-label="输出命令"
+            ></textarea>
+        </section>
+
+        <section class="card-group">
+            <label class="input-title" for="finalCmd">
+                <span class="emoji">🔐</span>编码结果
+            </label>
+            <div class="control-group">
+                <div class="custom-select" id="custom-encode-select">
+                    <button type="button" id="encodeSelectBtn" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="select-text">None</span>
+                        <span class="select-arrow">▼</span>
+                    </button>
+                    <ul id="encodeSelectList" class="select-list" role="listbox" aria-label="选择编码类型">
+                        <li role="option" data-value="none" aria-selected="true">None</li>
+                        <li role="option" data-value="url" aria-selected="false">URL编码</li>
+                        <li role="option" data-value="double_url" aria-selected="false">双URL编码</li>
+                        <li role="option" data-value="base64" aria-selected="false">Base64编码</li>
+                        <li role="option" data-value="hex" aria-selected="false">Hex编码</li>
                     </ul>
                 </div>
-                <button onclick="encodeFinalCmd()">编码</button>
+                <button type="button" id="encodeBtn" class="primary-btn">
+                    <span class="btn-icon">🔧</span>
+                    编码
+                </button>
             </div>
-            <textarea id="finalCmd" rows="2" readonly></textarea>
-            <button onclick="copyOutput('finalCmd')" style="width:100%;margin-top:16px;">复制编码结果</button>
-        </div>
-    </div>
+            <textarea 
+                id="finalCmd" 
+                rows="3" 
+                readonly 
+                aria-label="最终编码结果"
+            ></textarea>
+            <button type="button" id="copyBtn" class="copy-btn">
+                <span class="btn-icon">📋</span>
+                <span class="btn-text">复制编码结果</span>
+            </button>
+        </section>
+
+        <footer class="app-footer">
+            <div class="status-bar">
+                <span id="statusText" class="status-text">就绪</span>
+                <span id="charCount" class="char-count">0 字符</span>
+            </div>
+        </footer>
+    </main>
+
     <script src="js/script.js"></script>
 </body>
 </html> 

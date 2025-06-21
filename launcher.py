@@ -24,6 +24,7 @@ from PyQt6.QtCore import Qt, QUrl, QTimer, QThread, pyqtSignal, QSize, QRect, QP
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QAction, QKeySequence, QDesktopServices, QPainter, QBrush, QPen
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
+from PyQt6.QtWebChannel import QWebChannel
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
@@ -717,6 +718,15 @@ class CacheManager:
         self.cache.clear()
         self.access_order.clear()
 
+class ClipboardBridge(QObject):
+    """提供给JS调用的剪贴板桥接"""
+    @pyqtSlot(str)
+    def copy(self, text):
+        if text:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            logging.info(f"通过桥接复制到剪贴板: {text[:50]}...")
+
 class MainWindow(QMainWindow):
     """主窗口"""
     # 为工作线程添加信号
@@ -1016,6 +1026,13 @@ class MainWindow(QMainWindow):
             self.assist_content.addWidget(self.shellgen_webview)
             # Java命令编码页面
             self.java_encode_webview = QWebEngineView()
+            
+            # 创建JS-Python桥接，解决内嵌页面剪贴板权限问题
+            self.clipboard_bridge = ClipboardBridge()
+            channel = QWebChannel(self.java_encode_webview.page())
+            self.java_encode_webview.page().setWebChannel(channel)
+            channel.registerObject("qt_bridge", self.clipboard_bridge)
+            
             java_encode_path = os.path.join(current_dir, "project", "java-encode", "index.html")
             if os.path.exists(java_encode_path):
                 url = QUrl.fromLocalFile(java_encode_path)
